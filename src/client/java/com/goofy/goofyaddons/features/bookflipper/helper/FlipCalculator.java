@@ -12,9 +12,9 @@ import java.util.*;
 
 public class FlipCalculator {
     private boolean running = false;
-    private HttpClient client = HttpClient.newHttpClient();
-    private Map<String, BazaarData> bazaar = new HashMap<>();
-    private List<FlipItem> flipItemsList = new ArrayList<>();
+    private final HttpClient client = HttpClient.newHttpClient();
+    private final Map<String, BazaarData> bazaar = new HashMap<>();
+    private final List<FlipItem> flipItemsList = new ArrayList<>();
 
 
 
@@ -92,7 +92,7 @@ public class FlipCalculator {
 
             double score = profit * Math.log10(sellData.sellVolume() + 1) / Math.sqrt(cost);
 
-            flipItemsList.add(new FlipItem(book, cost, score, instaBuy, instaSell));
+            flipItemsList.add(new FlipItem(book, cost, profit, score, instaBuy, instaSell));
         }
 
         flipItemsList.sort(Comparator.comparingDouble(FlipItem::score).reversed());

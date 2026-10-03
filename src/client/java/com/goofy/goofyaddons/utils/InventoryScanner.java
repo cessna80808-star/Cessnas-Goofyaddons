@@ -16,48 +16,16 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class InventoryScanner {
-    private Minecraft minecraft = Minecraft.getInstance();
+    private final Minecraft minecraft = Minecraft.getInstance();
 
-    public List<Integer> findInv(String name) {
-        List<Integer> slots = new ArrayList<>();
-        Inventory playerInv = minecraft.player.getInventory();
-        AbstractContainerMenu menu = minecraft.player.containerMenu;
-
-        for (Slot slot : menu.slots) {
-            if (slot.container != playerInv) continue;
-            ItemStack item = slot.getItem();
-            if (item.isEmpty()) continue;
-            if (item.getCustomName() == null) continue;
-            if (!item.getCustomName().getString().equals(name)) continue;
-            slots.add(slot.index);
-        }
-        return slots;
-    }
-
-    public List<Integer> getSellOrder() {
-        List<Integer> slots = new ArrayList<>();
-        AbstractContainerMenu menu = minecraft.player.containerMenu;
-        int end = menu.slots.size() - 36;
-        for (int i = 0; i < end; i++) {
-            ItemStack item = menu.slots.get(i).getItem();
-            if (item.isEmpty()) continue;
-            if (item.getCustomName() == null) continue;
-            if (!item.getCustomName().getString().contains("SELL")) continue;
-            slots.add(i);
-        }
-        return slots;
-    }
-
-    public String getName(int slot) {
-        AbstractContainerMenu menu = minecraft.player.containerMenu;
-
-        ItemStack itemStack = menu.slots.get(slot).getItem();
-        return itemStack.getCustomName().toString();
+    private AbstractContainerMenu currentMenu() {
+        return minecraft.player == null ? null : minecraft.player.containerMenu;
     }
 
     public List<Integer> findContainer(String name) {
         List<Integer> slots = new ArrayList<>();
-        AbstractContainerMenu menu = minecraft.player.containerMenu;
+        AbstractContainerMenu menu = currentMenu();
+        if (menu == null) return slots;
         int end = menu.slots.size() - 36;
         for (int i = 0; i < end; i++) {
             ItemStack item = menu.slots.get(i).getItem();
@@ -71,6 +39,7 @@ public class InventoryScanner {
 
     public List<Integer> findLoreInv(String string) {
         List<Integer> slots = new ArrayList<>();
+        if (minecraft.player == null) return slots;
         Inventory playerInv = minecraft.player.getInventory();
         AbstractContainerMenu menu = minecraft.player.containerMenu;
 
@@ -79,7 +48,7 @@ public class InventoryScanner {
             ItemStack item = slot.getItem();
             if (item.isEmpty()) continue;
             ItemLore lore = item.get(DataComponents.LORE);
-            if (lore == null || !lore.lines().stream().anyMatch(l -> l.getString().equals(string))) continue;
+            if (lore == null || lore.lines().stream().noneMatch(l -> l.getString().equals(string))) continue;
             slots.add(slot.index);
         }
         return slots;
@@ -87,13 +56,14 @@ public class InventoryScanner {
 
     public List<Integer> findLoreContainer(String string) {
         List<Integer> slots = new ArrayList<>();
-        AbstractContainerMenu menu = minecraft.player.containerMenu;
+        AbstractContainerMenu menu = currentMenu();
+        if (menu == null) return slots;
         int end = menu.slots.size() - 36;
         for (int i = 0; i < end; i++) {
             ItemStack item = menu.slots.get(i).getItem();
             if (item.isEmpty()) continue;
             ItemLore lore = item.get(DataComponents.LORE);
-            if (lore == null || !lore.lines().stream().anyMatch(l -> l.getString().equals(string))) continue;
+            if (lore == null || lore.lines().stream().noneMatch(l -> l.getString().equals(string))) continue;
             slots.add(i);
         }
         return slots;
@@ -101,7 +71,8 @@ public class InventoryScanner {
 
     public int checkOrder(int slot) {
         int items = 0;
-        AbstractContainerMenu menu = minecraft.player.containerMenu;
+        AbstractContainerMenu menu = currentMenu();
+        if (!hasSlot(menu, slot)) return 0;
         ItemStack itemStack = menu.slots.get(slot).getItem();
         ItemLore lore = itemStack.get(DataComponents.LORE);
         if (lore == null) return 0;
@@ -116,7 +87,8 @@ public class InventoryScanner {
 
     public double getUnitPrice(int slot) {
         double unitPrice = 0;
-        AbstractContainerMenu menu = minecraft.player.containerMenu;
+        AbstractContainerMenu menu = currentMenu();
+        if (!hasSlot(menu, slot)) return 0;
         ItemStack itemStack = menu.slots.get(slot).getItem();
         ItemLore itemLore = itemStack.get(DataComponents.LORE);
         if (itemLore == null) return 0;
@@ -131,7 +103,8 @@ public class InventoryScanner {
 
     public int getEmptyInventorySlots() {
         int amount = 0;
-        AbstractContainerMenu menu = minecraft.player.containerMenu;
+        AbstractContainerMenu menu = currentMenu();
+        if (menu == null) return 0;
         Inventory playerInv = minecraft.player.getInventory();
 
         for (Slot slot : menu.slots) {
@@ -146,7 +119,8 @@ public class InventoryScanner {
 
     public int getEmptyContainerSlots() {
         int amount = 0;
-        AbstractContainerMenu menu = minecraft.player.containerMenu;
+        AbstractContainerMenu menu = currentMenu();
+        if (menu == null) return 0;
         Inventory playerInv = minecraft.player.getInventory();
 
         for (Slot slot : menu.slots) {
@@ -160,27 +134,28 @@ public class InventoryScanner {
     }
 
     public boolean findMisMatch(String string) {
-        AbstractContainerMenu menu = minecraft.player.containerMenu;
+        AbstractContainerMenu menu = currentMenu();
+        if (menu == null || menu.slots.size() <= 33) return false;
         if (!menu.slots.get(29).hasItem() || !menu.slots.get(33).hasItem()) return false;
         ItemStack item = menu.slots.get(29).getItem();
         ItemStack item2 = menu.slots.get(33).getItem();
         ItemLore lore = item.get(DataComponents.LORE);
         ItemLore lore2 = item2.get(DataComponents.LORE);
         if (lore == null || lore2 == null) return false;
-        if (lore.lines().stream().anyMatch(l -> l.getString().equals(string)) && lore2.lines().stream().anyMatch(l -> l.getString().equals(string)))
-            return false;
-        return true;
+        return lore.lines().stream().noneMatch(l -> l.getString().equals(string))
+                || lore2.lines().stream().noneMatch(l -> l.getString().equals(string));
     }
 
     public List<Integer> matchingBookInContainer(Book book) {
         List<Integer> slots = new ArrayList<>();
-        AbstractContainerMenu menu = minecraft.player.containerMenu;
+        AbstractContainerMenu menu = currentMenu();
+        if (menu == null) return slots;
         int end = menu.slots.size() - 36;
         for (int i = 0; i < end; i++) {
             ItemStack item = menu.slots.get(i).getItem();
             if (item.isEmpty()) continue;
             ItemLore lore = item.get(DataComponents.LORE);
-            if (lore == null || !lore.lines().stream().anyMatch(l -> l.getString().contains(book.name()))) continue;
+            if (lore == null || lore.lines().stream().noneMatch(l -> l.getString().contains(book.name()))) continue;
             slots.add(i);
         }
         return slots;
@@ -188,21 +163,23 @@ public class InventoryScanner {
 
     public List<Integer> matchingBookInInventory(Book book) {
         List<Integer> slots = new ArrayList<>();
-        AbstractContainerMenu menu = minecraft.player.containerMenu;
+        AbstractContainerMenu menu = currentMenu();
+        if (menu == null) return slots;
         Inventory inventory = minecraft.player.getInventory();
         for (Slot slot : menu.slots) {
             if (slot.container != inventory) continue;
             ItemStack item = slot.getItem();
             if (item.isEmpty()) continue;
             ItemLore lore = item.get(DataComponents.LORE);
-            if (lore == null || !lore.lines().stream().anyMatch(l -> l.getString().contains(book.name()))) continue;
+            if (lore == null || lore.lines().stream().noneMatch(l -> l.getString().contains(book.name()))) continue;
             slots.add(slot.index);
         }
         return slots;
     }
 
     public int getLevel(int slot) {
-        AbstractContainerMenu menu = minecraft.player.containerMenu;
+        AbstractContainerMenu menu = currentMenu();
+        if (!hasSlot(menu, slot)) return -1;
         ItemStack itemStack = menu.slots.get(slot).getItem();
         if (itemStack.isEmpty()) return -1;
         CustomData customData = itemStack.get(DataComponents.CUSTOM_DATA);
@@ -215,7 +192,11 @@ public class InventoryScanner {
     }
 
     public boolean isMenuLoaded(int slot) {
-        AbstractContainerMenu menu = minecraft.player.containerMenu;
-        return menu.slots.get(slot).hasItem();
+        AbstractContainerMenu menu = currentMenu();
+        return hasSlot(menu, slot) && menu.slots.get(slot).hasItem();
+    }
+
+    private static boolean hasSlot(AbstractContainerMenu menu, int slot) {
+        return menu != null && slot >= 0 && slot < menu.slots.size();
     }
 }

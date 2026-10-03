@@ -1,10 +1,10 @@
 package com.goofy.goofyaddons.config;
 
+import com.goofy.goofyaddons.GoofyAddons;
 import com.goofy.goofyaddons.features.bookflipper.helper.Book;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import net.fabricmc.loader.api.FabricLoader;
-import org.lwjgl.glfw.GLFW;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -18,10 +18,6 @@ public class GoofyConfig {
     public GoofyConfig() {
         books.add(new Book("ENCHANTMENT_ULTIMATE_WISE", 1, 5, "Ultimate Wise", 0, 0));
         books.add(new Book("ENCHANTMENT_ULTIMATE_WISE", 2, 5, "Ultimate Wise", 0, 0));
-        // books.add(new Book("ENCHANTMENT_ULTIMATE_WISDOM", 1, 5, "Wisdom"));
-        // books.add(new Book("ENCHANTMENT_ULTIMATE_WISDOM", 2, 5, "Wisdom"));
-        // books.add(new Book("ENCHANTMENT_ULTIMATE_LAST_STAND", 1, 5, "Last Stand"));
-        // books.add(new Book("ENCHANTMENT_ULTIMATE_LAST_STAND", 2, 5, "Last Stand"));
     }
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
@@ -31,8 +27,6 @@ public class GoofyConfig {
     public static GoofyConfig INSTANCE;
 
 
-    public int startKey = GLFW.GLFW_KEY_J;
-    public int stopKey = GLFW.GLFW_KEY_K;
     public boolean speedMode = false;
     public int speedModeDelay = 100;
     public int minActionDelay = 100;
@@ -60,20 +54,22 @@ public class GoofyConfig {
                 save();
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            GoofyAddons.LOGGER.error("Could not load GoofyAddons config from {}", CONFIG_PATH, e);
             INSTANCE = new GoofyConfig();
             save();
         }
     }
 
-    public static void save() {
+    public static boolean save() {
         try {
             Files.writeString(
                     CONFIG_PATH,
                     GSON.toJson(INSTANCE)
             );
+            return true;
         } catch (Exception e) {
-            e.printStackTrace();
+            GoofyAddons.LOGGER.error("Could not save GoofyAddons config to {}", CONFIG_PATH, e);
+            return false;
         }
     }
 

@@ -28,10 +28,10 @@ public class Task {
         STORE_ANVIL
     }
 
-    public boolean instaSell = false;
-    public boolean instaBuy = false;
+    public boolean instaSell;
+    public boolean instaBuy;
     public ActionSchedule actionSchedule = ActionSchedule.NONE;
-    private Book book;
+    private final Book book;
     private int amountToOrder;
     private BookState bookState;
     // book location will be represented in integars, 0 = Inventory, 1 = EnderChest, 2 = EnderChestPage2

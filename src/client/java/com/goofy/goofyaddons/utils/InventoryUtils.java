@@ -8,7 +8,7 @@ public class InventoryUtils {
 
     public static void clickSlot(int slot, boolean shift) {
         Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft.player == null) return;
+        if (minecraft.player == null || minecraft.gameMode == null) return;
 
         AbstractContainerMenu menu = minecraft.player.containerMenu;
 

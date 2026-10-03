@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.function.Consumer;
 
 public class ChatHook {
-    private static List<HOOK> hookList = new ArrayList<>();
+    private static final List<HOOK> hookList = new ArrayList<>();
 
     public static void register() {
         ClientReceiveMessageEvents.GAME.register(ChatHook::onChatMessage);
@@ -20,11 +20,12 @@ public class ChatHook {
 
 
     private static void onChatMessage(Component message, boolean overlay) {
-        if (overlay == true) return;
+        if (overlay) return;
         String text = message.getString().replaceAll("§.", "");
         if (text.startsWith("[GoofyAddons]")) return;
+        String normalizedText = text.toLowerCase(java.util.Locale.ROOT);
         for (HOOK hook : hookList) {
-            if (!text.contains(hook.pattern)) continue;
+            if (!normalizedText.contains(hook.pattern.toLowerCase(java.util.Locale.ROOT))) continue;
             hook.string.accept(text);
         }
     }

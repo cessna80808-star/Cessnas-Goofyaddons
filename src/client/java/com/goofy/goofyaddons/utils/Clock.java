@@ -21,15 +21,7 @@ public class Clock {
         return false;
     }
 
-    public void reset() {
-        startMs = System.currentTimeMillis();
-    }
-
     public void stop() {
         running = false;
-    }
-
-    public boolean returnState() {
-        return running;
     }
 }

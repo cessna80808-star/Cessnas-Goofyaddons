@@ -11,7 +11,7 @@ public class ScoreboardUtils {
     private static final Minecraft minecraft = Minecraft.getInstance();
 
     public double getPurse() {
-        Double purse = (double) -1;
+        double purse = -1;
         if (minecraft.player == null) return -1;
         if (minecraft.level == null) return -1;
 
@@ -30,12 +30,12 @@ public class ScoreboardUtils {
                             + fakePlayer
                             + team.getPlayerSuffix().getString();
             if (!line.contains("Purse")) continue;
-                purse = Double.parseDouble(
-                        line.replace("Purse:", "")
-                                .replaceAll("§.", "")
-                                .replaceAll("[^0-9.]", "")
-                                .trim()
-                );
+            purse = Double.parseDouble(
+                    line.replace("Purse:", "")
+                            .replaceAll("§.", "")
+                            .replaceAll("[^0-9.]", "")
+                            .trim()
+            );
         }
         return purse;
     }

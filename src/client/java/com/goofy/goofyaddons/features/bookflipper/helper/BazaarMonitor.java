@@ -16,8 +16,8 @@ import java.util.function.Consumer;
 
 public class BazaarMonitor {
     private boolean running = false;
-    private HttpClient client = HttpClient.newHttpClient();
-    private long duration = 20000;
+    private final HttpClient client = HttpClient.newHttpClient();
+    private final long duration = 20000;
     private long startMs;
     private long lastUpdated;
     private final List<BazaarMonitorItem> monitorItemList = new ArrayList<>();
@@ -25,16 +25,38 @@ public class BazaarMonitor {
 
     public void add(Book book, double price, boolean isSellOrder) {
         ChatUtils.debugMessage("[BazaarMonitor] Book was added " + book.name() + " " + price + "sellorder=" + isSellOrder);
-        monitorItemList.add(new BazaarMonitorItem(book, price, isSellOrder));
+        synchronized (monitorItemList) {
+            monitorItemList.add(new BazaarMonitorItem(book, price, isSellOrder));
+        }
     }
 
     public void finish(Book book, boolean isSellOffer) {
-        System.out.println("[BazaarMonitor] Removing book " + book.name());
-        monitorItemList.removeIf(bazaarMonitorItem -> bazaarMonitorItem.isSellOrder == isSellOffer && bazaarMonitorItem.book.equals(book));
+        ChatUtils.debugMessage("[BazaarMonitor] Removing book " + book.name());
+        synchronized (monitorItemList) {
+            monitorItemList.removeIf(bazaarMonitorItem -> bazaarMonitorItem.isSellOrder == isSellOffer && bazaarMonitorItem.book.equals(book));
+        }
     }
 
     public void reset() {
-        monitorItemList.clear();
+        synchronized (monitorItemList) {
+            monitorItemList.clear();
+        }
+    }
+
+    public List<ActiveOrder> activeOrders() {
+        synchronized (monitorItemList) {
+            return monitorItemList.stream()
+                    .map(item -> new ActiveOrder(item.book.name() + " " + item.book.getRomanLevel(
+                                    item.isSellOrder ? item.book.sellLevel() : item.book.level()),
+                            item.isSellOrder ? "Sell" : "Buy", item.price))
+                    .toList();
+        }
+    }
+
+    private boolean hasActiveOrders() {
+        synchronized (monitorItemList) {
+            return !monitorItemList.isEmpty();
+        }
     }
 
     public void hook(Consumer<BazaarMonitorItem> hook) {
@@ -45,7 +67,7 @@ public class BazaarMonitor {
     public void onTick() {
         if (!running) return;
         if (!((System.currentTimeMillis() - startMs) >= duration)) return;
-        if (monitorItemList.isEmpty()) return;
+        if (!hasActiveOrders()) return;
         startMs = System.currentTimeMillis();
         refresh();
 
@@ -84,12 +106,15 @@ public class BazaarMonitor {
 
                     JsonObject products = root.getAsJsonObject("products");
 
-                    monitorItemList.forEach(bazaarMonitorItem -> outbidScanner(products, bazaarMonitorItem));
+                    List<BazaarMonitorItem> items;
+                    synchronized (monitorItemList) {
+                        items = new ArrayList<>(monitorItemList);
+                    }
+                    items.forEach(bazaarMonitorItem -> outbidScanner(products, bazaarMonitorItem));
 
-                    monitorItemList.removeIf(bazaarMonitorItem -> {
-                        if (bazaarMonitorItem.getOutbid()) return true;
-                        return false;
-                    });
+                    synchronized (monitorItemList) {
+                        monitorItemList.removeIf(BazaarMonitorItem::getOutbid);
+                    }
                 });
 
     }
@@ -103,7 +128,7 @@ public class BazaarMonitor {
             double price = entry.get("pricePerUnit").getAsDouble();
 
             if (orders > 1 || price != bazaarMonitorItem.price) {
-                bazaarMonitorItem.setOutbid(true);
+                bazaarMonitorItem.setOutbid();
                 handleOutbid(bazaarMonitorItem);
             }
         } else {
@@ -112,7 +137,7 @@ public class BazaarMonitor {
             double price = entry.get("pricePerUnit").getAsDouble();
 
             if (orders > 1 || price != bazaarMonitorItem.price) {
-                bazaarMonitorItem.setOutbid(true);
+                bazaarMonitorItem.setOutbid();
                 handleOutbid(bazaarMonitorItem);
             }
         }
@@ -127,9 +152,9 @@ public class BazaarMonitor {
 
 
     public class BazaarMonitorItem {
-        public boolean isSellOrder;
-        public Book book;
-        private double price;
+        public final boolean isSellOrder;
+        public final Book book;
+        private final double price;
         private boolean isOutbid = false;
         private long time;
 
@@ -140,8 +165,8 @@ public class BazaarMonitor {
             time = System.currentTimeMillis();
         }
 
-        private void setOutbid(boolean outbid) {
-            isOutbid = outbid;
+        private void setOutbid() {
+            isOutbid = true;
         }
 
         private boolean getOutbid() {
@@ -156,4 +181,3 @@ public class BazaarMonitor {
     }
 
 }
-

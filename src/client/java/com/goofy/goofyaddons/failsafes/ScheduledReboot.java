@@ -14,7 +14,7 @@ public class ScheduledReboot implements Failsafe {
 
     private boolean enabled = false;
     private State state;
-    private Clock clock = new Clock();
+    private final Clock clock = new Clock();
 
 
     public ScheduledReboot() {
@@ -28,11 +28,29 @@ public class ScheduledReboot implements Failsafe {
     }
 
     @Override
+    public boolean isActive() {
+        return enabled;
+    }
+
+    @Override
+    public boolean runsWhilePaused() {
+        return true;
+    }
+
+    @Override
+    public void reset() {
+        enabled = false;
+        state = null;
+        clock.stop();
+    }
+
+    @Override
     public void onTick() {
         if (!enabled) return;
 
         switch (state) {
             case ISLAND -> {
+                if (Minecraft.getInstance().player == null) return;
                 Minecraft.getInstance().player.connection.sendCommand("Hub");
                 state = State.HUB;
             }
@@ -40,6 +58,7 @@ public class ScheduledReboot implements Failsafe {
             case HUB -> {
                 clock.start(10000);
                 if (clock.shouldFire()) {
+                    if (Minecraft.getInstance().player == null) return;
                     Minecraft.getInstance().player.connection.sendCommand("Is");
                     state = State.COMPLETED;
                 }
@@ -48,7 +67,9 @@ public class ScheduledReboot implements Failsafe {
             case COMPLETED -> {
                 clock.start(5000);
                 if (clock.shouldFire()) {
-                    FeatureManager.INSTANCE.resume();
+                    if (!FailsafeManager.INSTANCE.isSafetyPaused()) {
+                        FeatureManager.INSTANCE.resume();
+                    }
                     enabled = false;
                 }
             }
