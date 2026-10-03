@@ -33,6 +33,8 @@ public class GoofyConfig {
     public int maxActionDelay = 500;
     public String firstPage = "ec";
     public String secondPage = "ec 2";
+    public boolean discordWebhookEnabled = false;
+    public String discordWebhookUrl = "";
 
 
     public static void load() {

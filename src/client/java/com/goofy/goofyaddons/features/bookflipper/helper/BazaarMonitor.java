@@ -23,10 +23,10 @@ public class BazaarMonitor {
     private final List<BazaarMonitorItem> monitorItemList = new ArrayList<>();
     private final List<Consumer<BazaarMonitorItem>> hookList = new ArrayList<>();
 
-    public void add(Book book, double price, boolean isSellOrder) {
+    public void add(Book book, double price, boolean isSellOrder, int amount) {
         ChatUtils.debugMessage("[BazaarMonitor] Book was added " + book.name() + " " + price + "sellorder=" + isSellOrder);
         synchronized (monitorItemList) {
-            monitorItemList.add(new BazaarMonitorItem(book, price, isSellOrder));
+            monitorItemList.add(new BazaarMonitorItem(book, price, isSellOrder, amount));
         }
     }
 
@@ -50,6 +50,15 @@ public class BazaarMonitor {
                                     item.isSellOrder ? item.book.sellLevel() : item.book.level()),
                             item.isSellOrder ? "Sell" : "Buy", item.price))
                     .toList();
+        }
+    }
+
+    public double activeBuyOrderValue() {
+        synchronized (monitorItemList) {
+            return monitorItemList.stream()
+                    .filter(item -> !item.isSellOrder)
+                    .mapToDouble(item -> item.price * item.amount)
+                    .sum();
         }
     }
 
@@ -155,13 +164,15 @@ public class BazaarMonitor {
         public final boolean isSellOrder;
         public final Book book;
         private final double price;
+        private final int amount;
         private boolean isOutbid = false;
         private long time;
 
-        public BazaarMonitorItem(Book book, double price, boolean isSellOrder) {
+        public BazaarMonitorItem(Book book, double price, boolean isSellOrder, int amount) {
             this.book = book;
             this.price = price;
             this.isSellOrder = isSellOrder;
+            this.amount = amount;
             time = System.currentTimeMillis();
         }
 

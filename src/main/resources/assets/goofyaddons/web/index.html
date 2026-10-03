@@ -1,0 +1,384 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GoofyAddons Control Panel</title>
+  <style>
+    :root { color-scheme: dark; font: 15px/1.5 system-ui, sans-serif; background: #10141c; color: #e4eaf2; }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 32px 16px; }
+    main { width: min(900px, 100%); margin: auto; }
+    header { display: flex; align-items: center; justify-content: space-between; gap: 16px; border-bottom: 1px solid #394454; padding-bottom: 20px; }
+    h1, h2, p { margin: 0; }
+    h1 { font-size: 1.5rem; letter-spacing: .08em; }
+    h2 { font-size: 1rem; color: #55d6be; letter-spacing: .06em; margin-bottom: 14px; }
+    .muted, label { color: #9ba8b8; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 20px; }
+    section { background: #202734; border: 1px solid #394454; border-radius: 10px; padding: 20px; }
+    .status-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .status-item { min-width: 0; }
+    .status-item span { display: block; color: #9ba8b8; font-size: .85rem; }
+    .status-item strong { overflow-wrap: anywhere; }
+    .profit-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 18px; }
+    .profit-card { min-width: 0; border: 1px solid #394454; border-radius: 8px; padding: 12px; background: #141a24; }
+    .profit-card span { display: block; color: #9ba8b8; font-size: .85rem; }
+    .profit-card strong { display: block; margin-top: 3px; font-size: 1.2rem; overflow-wrap: anywhere; }
+    .profit-charts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+    .profit-chart { min-width: 0; }
+    .profit-chart h3 { margin: 0 0 6px; color: #9ba8b8; font-size: .85rem; font-weight: 500; }
+    .profit-chart canvas { display: block; width: 100%; height: 200px; }
+    .profit-actions { margin: 12px 0 0; }
+    .actions { display: flex; gap: 10px; margin-top: 18px; }
+    button { border: 0; border-radius: 6px; background: #55d6be; color: #10141c; font: inherit; font-weight: 700; padding: 9px 16px; cursor: pointer; }
+    button.secondary { background: #394454; color: #e4eaf2; }
+    button:hover { filter: brightness(1.1); }
+    form { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    label { display: grid; gap: 5px; font-size: .85rem; }
+    input { min-width: 0; width: 100%; border: 1px solid #526075; border-radius: 5px; background: #141a24; color: #e4eaf2; padding: 9px; font: inherit; }
+    .checkbox { display: flex; align-items: center; gap: 8px; }
+    .checkbox input { width: auto; }
+    .wide { grid-column: 1 / -1; }
+    .book-list, #orders { display: grid; gap: 12px; }
+    .book-editor-row { display: grid; grid-template-columns: 2fr 2fr .7fr .7fr 1fr 1fr auto; gap: 8px; align-items: end; border-top: 1px solid #394454; padding-top: 12px; }
+    .book-editor-row label { min-width: 0; }
+    .book-editor-row button { padding: 8px 10px; }
+    .order-row { display: flex; justify-content: space-between; gap: 12px; border-top: 1px solid #394454; padding-top: 8px; }
+    .order-row span:last-child { white-space: nowrap; }
+    .hint { font-size: .85rem; margin: 10px 0; }
+    #message { min-height: 1.5em; margin-top: 12px; color: #55d6be; }
+    #message.error { color: #ff7777; }
+    @media (max-width: 800px) { .book-editor-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } .book-editor-row button { grid-column: 1 / -1; } }
+    @media (max-width: 650px) { body { padding: 20px 12px; } header { align-items: flex-start; flex-direction: column; } .grid, .profit-charts { grid-template-columns: 1fr; } .profit-summary { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <div><h1>GOOFY ADDONS</h1><p class="muted">Bazaar Flipper browser control panel</p></div>
+    <p class="muted">Connected to this Minecraft client</p>
+  </header>
+  <div class="grid">
+    <section>
+      <h2>LIVE STATUS</h2>
+      <div class="status-grid">
+        <div class="status-item"><span>Macro</span><strong id="running">Loading…</strong></div>
+        <div class="status-item"><span>Feature</span><strong id="feature">—</strong></div>
+        <div class="status-item"><span>State</span><strong id="state">—</strong></div>
+        <div class="status-item"><span>Active tasks</span><strong id="tasks">—</strong></div>
+        <div class="status-item wide"><span>Active failsafes</span><strong id="failsafes">—</strong></div>
+      </div>
+      <div class="actions">
+        <button type="button" id="start">Start</button>
+        <button type="button" class="secondary" id="stop">Stop</button>
+      </div>
+    </section>
+    <section>
+      <h2>FLIPPER SETTINGS</h2>
+      <form id="settings">
+        <label class="checkbox wide"><input id="speedMode" name="speedMode" type="checkbox"> Speed mode</label>
+        <label class="wide">Fixed speed-mode delay (ms)<input id="speedModeDelay" name="speedModeDelay" type="number" min="1" step="1" required></label>
+        <label>Minimum action delay (ms)<input id="minActionDelay" name="minActionDelay" type="number" min="51" step="1" required></label>
+        <label>Maximum action delay (ms)<input id="maxActionDelay" name="maxActionDelay" type="number" min="52" step="1" required></label>
+        <label class="wide">First storage page command<input id="firstPage" name="firstPage" maxlength="128" required></label>
+        <label class="wide">Second storage page command<input id="secondPage" name="secondPage" maxlength="128" required></label>
+        <label class="checkbox wide"><input id="discordWebhookEnabled" name="discordWebhookEnabled" type="checkbox"> Send Discord updates every 5 minutes</label>
+        <label class="wide">Discord webhook URL<input id="discordWebhookUrl" name="discordWebhookUrl" type="password" maxlength="500" autocomplete="new-password" placeholder="https://discord.com/api/webhooks/…"></label>
+      </form>
+      <p class="muted hint">Changes save automatically one second after you stop editing. The webhook URL is stored in your local Minecraft config; keep it private.</p>
+      <p id="message" role="status"></p>
+    </section>
+    <section class="wide">
+      <h2>PROFIT TRACKER</h2>
+      <div class="profit-summary">
+        <div class="profit-card"><span>Realized (claimed coins)</span><strong id="realizedProfit">Loading…</strong></div>
+        <div class="profit-card"><span>Sell offers (unrealized)</span><strong id="unrealizedProfit">Loading…</strong></div>
+        <div class="profit-card"><span>Open flips</span><strong id="openFlips">—</strong></div>
+      </div>
+      <div class="profit-charts">
+        <div class="profit-chart"><h3>Claimed coins over time</h3><canvas id="realizedChart" role="img" aria-label="Claimed Bazaar coins history"></canvas></div>
+        <div class="profit-chart"><h3>Coins on sell offers over time</h3><canvas id="unrealizedChart" role="img" aria-label="Total amount on open sell offers"></canvas></div>
+      </div>
+      <div class="actions profit-actions">
+        <button type="button" class="secondary" id="exportProfit">Export CSV</button>
+        <button type="button" class="secondary" id="resetProfit">Reset tracker</button>
+      </div>
+      <p class="muted hint">Realized records Bazaar coins when claimed. Unrealized is the total amount listed on active sell offers; flips without a posted sell offer are not included. Older estimated totals were cleared because they cannot be converted to claimed coin amounts.</p>
+    </section>
+    <section class="wide">
+      <h2>ACTIVE ORDERS</h2>
+      <div id="orders" class="muted">Loading…</div>
+    </section>
+    <section class="wide">
+      <h2>CONFIGURED BOOKS</h2>
+      <div id="books" class="book-list"></div>
+      <button type="button" class="secondary" id="addBook">Add book</button>
+    </section>
+  </div>
+</main>
+<script>
+  const message = document.getElementById("message");
+  let saveTimer;
+  let saving = false;
+  let savePending = false;
+  const setMessage = (text, error = false) => {
+    message.textContent = text;
+    message.classList.toggle("error", error);
+  };
+  async function request(path, options) {
+    const response = await fetch(path, options);
+    const body = await response.json();
+    if (!response.ok) throw new Error(body.error || "Request failed");
+    return body;
+  }
+  async function refreshStatus() {
+    try {
+      const status = await request("/api/status");
+      document.getElementById("running").textContent = status.running ? "RUNNING" : "STOPPED";
+      document.getElementById("start").textContent = status.state === "Paused" ? "Resume" : "Start";
+      document.getElementById("feature").textContent = status.feature;
+      document.getElementById("state").textContent = status.state;
+      document.getElementById("tasks").textContent = status.activeTasks;
+      document.getElementById("failsafes").textContent = status.activeFailsafes.length ? status.activeFailsafes.join(", ") : "None";
+    } catch (error) {
+      document.getElementById("running").textContent = "Disconnected";
+      setMessage(error.message, true);
+    }
+  }
+  const formatCoins = value => `${Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 })} coins`;
+  function drawChart(canvas, points, color) {
+    const ratio = window.devicePixelRatio || 1;
+    const bounds = canvas.getBoundingClientRect();
+    if (!bounds.width) return;
+    canvas.width = Math.round(bounds.width * ratio);
+    canvas.height = Math.round(bounds.height * ratio);
+    const context = canvas.getContext("2d");
+    context.scale(ratio, ratio);
+    const width = bounds.width;
+    const height = bounds.height;
+    const padding = { top: 10, right: 12, bottom: 24, left: 60 };
+    const values = points.length ? points.map(point => Number(point.value)).filter(Number.isFinite) : [0];
+    if (!values.length) values.push(0);
+    let min = Math.min(0, ...values);
+    let max = Math.max(0, ...values);
+    if (min === max) { min -= 1; max += 1; }
+    const plotWidth = width - padding.left - padding.right;
+    const plotHeight = height - padding.top - padding.bottom;
+    const y = value => padding.top + (max - value) / (max - min) * plotHeight;
+    context.font = "11px system-ui, sans-serif";
+    context.textAlign = "right";
+    context.textBaseline = "middle";
+    context.strokeStyle = "#394454";
+    context.fillStyle = "#9ba8b8";
+    for (let i = 0; i <= 4; i++) {
+      const value = max - (max - min) * i / 4;
+      const yPos = padding.top + plotHeight * i / 4;
+      context.beginPath();
+      context.moveTo(padding.left, yPos);
+      context.lineTo(width - padding.right, yPos);
+      context.stroke();
+      context.fillText(Number(value).toLocaleString(undefined, { maximumFractionDigits: 0 }), padding.left - 8, yPos);
+    }
+    if (!points.length) return;
+    context.strokeStyle = color;
+    context.lineWidth = 2;
+    context.beginPath();
+    points.forEach((point, index) => {
+      const x = padding.left + (points.length === 1 ? plotWidth : plotWidth * index / (points.length - 1));
+      const yPos = y(Number(point.value));
+      if (index === 0) context.moveTo(x, yPos);
+      else context.lineTo(x, yPos);
+    });
+    context.stroke();
+  }
+  async function refreshProfit() {
+    const data = await request("/api/profit");
+    document.getElementById("realizedProfit").textContent = formatCoins(data.realizedProfit);
+    document.getElementById("unrealizedProfit").textContent = formatCoins(data.unrealizedProfit);
+    document.getElementById("openFlips").textContent = data.openFlips;
+    drawChart(document.getElementById("realizedChart"), data.realizedHistory, "#55d6be");
+    drawChart(document.getElementById("unrealizedChart"), data.unrealizedHistory, "#f2bb66");
+  }
+  async function exportProfit() {
+    const data = await request("/api/profit");
+    const rows = [["timestamp", "realized_profit", "unrealized_profit"]];
+    const timestamps = new Set([
+      ...data.realizedHistory.map(point => point.timestamp),
+      ...data.unrealizedHistory.map(point => point.timestamp)
+    ]);
+    const realized = new Map(data.realizedHistory.map(point => [point.timestamp, point.value]));
+    const unrealized = new Map(data.unrealizedHistory.map(point => [point.timestamp, point.value]));
+    for (const timestamp of [...timestamps].sort((a, b) => a - b)) {
+      rows.push([new Date(timestamp).toISOString(), realized.get(timestamp) ?? "", unrealized.get(timestamp) ?? ""]);
+    }
+    const csv = rows.map(row => row.map(value => `"${String(value).replaceAll('"', '""')}"`).join(",")).join("\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "goofyaddons-profit.csv";
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+  document.getElementById("exportProfit").addEventListener("click", () => {
+    exportProfit().catch(error => setMessage(error.message, true));
+  });
+  document.getElementById("resetProfit").addEventListener("click", async () => {
+    if (!window.confirm("Reset realized profit, open flips, and chart history? This cannot be undone.")) return;
+    try {
+      await request("/api/profit/reset", { method: "POST" });
+      await refreshProfit();
+      setMessage("Profit tracker reset");
+    } catch (error) {
+      setMessage(error.message, true);
+    }
+  });
+  async function refreshOrders() {
+    const orders = await request("/api/orders");
+    const container = document.getElementById("orders");
+    container.replaceChildren();
+    if (!orders.length) {
+      container.textContent = "No active orders are being monitored";
+      return;
+    }
+    for (const order of orders) {
+      const row = document.createElement("div");
+      row.className = "order-row";
+      const description = document.createElement("span");
+      description.textContent = `${order.type} order · ${order.product}`;
+      const price = document.createElement("span");
+      price.textContent = Number(order.price).toLocaleString(undefined, { maximumFractionDigits: 5 });
+      row.append(description, price);
+      container.append(row);
+    }
+  }
+  function addBookRow(book = {}) {
+    const row = document.createElement("div");
+    row.className = "book-editor-row";
+    const fields = [
+      ["Book ID", "id", "text", book.id ?? "", "[A-Z0-9_]+"],
+      ["Display name", "name", "text", book.name ?? "", ""],
+      ["Buy level", "level", "number", book.level ?? 1, ""],
+      ["Sell level", "sellLevel", "number", book.sellLevel ?? 5, ""],
+      ["Insta-buy %", "instaBuyPercentage", "number", book.instaBuyPercentage ?? 0, ""],
+      ["Insta-sell %", "instaSellPercentage", "number", book.instaSellPercentage ?? 0, ""]
+    ];
+    for (const [labelText, field, type, value, pattern] of fields) {
+      const label = document.createElement("label");
+      label.textContent = labelText;
+      const input = document.createElement("input");
+      input.name = field;
+      input.type = type;
+      input.value = value;
+      if (type === "number") {
+        input.min = field.includes("Percentage") ? "0" : field === "level" ? "1" : "1";
+        input.max = field.includes("Percentage") ? "100" : "10";
+        input.step = field.includes("Percentage") ? "any" : "1";
+        input.required = true;
+      } else {
+        input.maxLength = 128;
+        input.required = true;
+        if (pattern) input.pattern = pattern;
+      }
+      label.append(input);
+      row.append(label);
+    }
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "secondary";
+    remove.textContent = "Remove";
+    remove.addEventListener("click", () => {
+      row.remove();
+      scheduleSave();
+    });
+    row.append(remove);
+    document.getElementById("books").append(row);
+  }
+  function readBooks() {
+    return Array.from(document.querySelectorAll(".book-editor-row")).map(row => {
+      const value = name => row.querySelector(`[name="${name}"]`).value.trim();
+      const book = {
+        id: value("id"),
+        name: value("name"),
+        level: Number(value("level")),
+        sellLevel: Number(value("sellLevel")),
+        instaBuyPercentage: Number(value("instaBuyPercentage")),
+        instaSellPercentage: Number(value("instaSellPercentage"))
+      };
+      if (!book.id || !book.name) throw new Error("Complete each book’s ID and display name before saving");
+      return book;
+    });
+  }
+  function scheduleSave() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveConfig, 1000);
+  }
+  async function saveConfig() {
+    if (saving) {
+      savePending = true;
+      return;
+    }
+    let data;
+    try {
+      data = Object.fromEntries(new FormData(document.getElementById("settings")));
+      data.speedMode = document.getElementById("speedMode").checked;
+      data.discordWebhookEnabled = document.getElementById("discordWebhookEnabled").checked;
+      for (const key of ["speedModeDelay", "minActionDelay", "maxActionDelay"]) data[key] = Number(data[key]);
+      data.books = readBooks();
+    } catch (error) {
+      setMessage(error.message, true);
+      return;
+    }
+    saving = true;
+    savePending = false;
+    setMessage("Saving…");
+    try {
+      await request("/api/config", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+      setMessage("Settings saved");
+    } catch (error) {
+      setMessage(error.message, true);
+    } finally {
+      saving = false;
+      if (savePending) scheduleSave();
+    }
+  }
+  async function loadConfig() {
+    const config = await request("/api/config");
+    for (const key of ["speedMode", "speedModeDelay", "minActionDelay", "maxActionDelay", "firstPage", "secondPage", "discordWebhookEnabled", "discordWebhookUrl"]) {
+      const input = document.getElementById(key);
+      if (input.type === "checkbox") input.checked = config[key];
+      else input.value = config[key];
+    }
+    document.getElementById("books").replaceChildren();
+    for (const book of config.books) addBookRow(book);
+  }
+  document.getElementById("settings").addEventListener("input", scheduleSave);
+  document.getElementById("settings").addEventListener("change", scheduleSave);
+  document.getElementById("settings").addEventListener("submit", event => event.preventDefault());
+  document.getElementById("books").addEventListener("input", scheduleSave);
+  document.getElementById("books").addEventListener("change", scheduleSave);
+  document.getElementById("addBook").addEventListener("click", () => {
+    addBookRow();
+    document.querySelector(".book-editor-row:last-child input").focus();
+  });
+  for (const action of ["start", "stop"]) {
+    document.getElementById(action).addEventListener("click", async () => {
+      try {
+        await request("/api/action", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }) });
+        setMessage(`Macro ${action === "start" ? "started" : "stopped"}`);
+        await refreshStatus();
+      } catch (error) {
+        setMessage(error.message, true);
+      }
+    });
+  }
+  loadConfig().catch(error => setMessage(error.message, true));
+  refreshStatus();
+  refreshOrders().catch(error => setMessage(error.message, true));
+  refreshProfit().catch(error => setMessage(error.message, true));
+  setInterval(refreshStatus, 1500);
+  setInterval(() => refreshOrders().catch(error => setMessage(error.message, true)), 1500);
+  setInterval(() => refreshProfit().catch(error => setMessage(error.message, true)), 5000);
+  window.addEventListener("resize", () => refreshProfit().catch(error => setMessage(error.message, true)));
+</script>
+</body>
+</html>

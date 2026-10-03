@@ -8,6 +8,7 @@ import com.goofy.goofyaddons.features.bookflipper.helper.BazaarMonitor;
 import com.goofy.goofyaddons.features.bookflipper.helper.ActiveOrder;
 import com.goofy.goofyaddons.features.bookflipper.helper.Book;
 import com.goofy.goofyaddons.features.bookflipper.helper.BookList;
+import com.goofy.goofyaddons.features.bookflipper.helper.DiscordWebhookReporter;
 import com.goofy.goofyaddons.features.bookflipper.helper.FlipCalculator;
 import com.goofy.goofyaddons.features.bookflipper.helper.FlipItem;
 import com.goofy.goofyaddons.features.bookflipper.helper.ProfitTracker;
@@ -61,6 +62,7 @@ public class BazaarFlipper implements Feature {
     private final SplittableRandom splittableRandom = new SplittableRandom();
     private final InventoryScanner inventoryScanner = new InventoryScanner();
     private final BazaarMonitor bazaarMonitor = new BazaarMonitor();
+    private final DiscordWebhookReporter discordWebhookReporter = new DiscordWebhookReporter();
     private boolean running = false;
     private boolean paused = false;
     private final List<FlipItem> flipItemList = new ArrayList<>();
@@ -169,6 +171,8 @@ public class BazaarFlipper implements Feature {
 
     @Override
     public void start() {
+        minecraft.mouseHandler.releaseMouse();
+        discordWebhookReporter.start();
         running = true;
     }
 
@@ -192,6 +196,7 @@ public class BazaarFlipper implements Feature {
     public void onTick() {
         if (!running) return;
         if (minecraft.player == null || minecraft.level == null || minecraft.gameMode == null) return;
+        discordWebhookReporter.onTick(bazaarMonitor.activeBuyOrderValue());
         selfRecoveryTrigger();
         handleTaskStateChange();
         lastStateCheck();
@@ -468,13 +473,18 @@ public class BazaarFlipper implements Feature {
                 if (containerNameCheck("How much do you want to pay")) clock.start(randomizer());
                 if (containerNameCheck("How much do you want to pay") && inventoryScanner.isMenuLoaded(35) && clock.shouldFire()) {
                     double unitPrice = inventoryScanner.getUnitPrice(12);
-                    bazaarMonitor.add(activeTask.getBook(), unitPrice, false);
+                    if (!activeTask.instaBuy) {
+                        bazaarMonitor.add(activeTask.getBook(), unitPrice, false, activeTask.getAmountToOrder());
+                    }
                     InventoryUtils.clickSlot(12, false);
                 }
 
                 if (containerNameCheck("Confirm")) clock.start(randomizer());
                 if (containerNameCheck("Confirm") && inventoryScanner.isMenuLoaded(35) && clock.shouldFire()) {
                     InventoryUtils.clickSlot(13, false);
+                    discordWebhookReporter.recordOrderPlaced((activeTask.instaBuy ? "Instant buy" : "Buy order")
+                            + " · " + activeTask.getAmountToOrder() + "× "
+                            + activeTask.getBook().getRomanLevel(activeTask.getBook().level()));
                     // first we check if the order was an insta buy
                     if (activeTask.instaBuy) {
                         ProfitTracker.INSTANCE.trackPurchase(activeTask.getBook());
@@ -997,7 +1007,7 @@ public class BazaarFlipper implements Feature {
                 if (containerNameCheck("At what price are you selling") && inventoryScanner.isMenuLoaded(35) && clock.shouldFire()) {
                     bazaarMonitor.finish(task.getBook(), false);
                     double unitPrice = inventoryScanner.getUnitPrice(12);
-                    bazaarMonitor.add(task.getBook(), unitPrice, true);
+                    bazaarMonitor.add(task.getBook(), unitPrice, true, 1);
                     pendingSellOfferAmounts.put(task.getBook(), unitPrice);
                     InventoryUtils.clickSlot(12, false);
                 }
@@ -1008,6 +1018,8 @@ public class BazaarFlipper implements Feature {
                     ProfitTracker.INSTANCE.updateSellOffer(task.getBook(),
                             pendingSellOfferAmounts.getOrDefault(task.getBook(), 0.0));
                     pendingSellOfferAmounts.remove(task.getBook());
+                    discordWebhookReporter.recordOrderPlaced("Sell offer · "
+                            + task.getBook().getRomanLevel(task.getBook().sellLevel()));
                     debug("[BazaarFlipper] SELL: placed sell order for " + task.getBook());
                     task.setBookState(Task.BookState.SELL_ORDER);
 
@@ -1078,7 +1090,7 @@ public class BazaarFlipper implements Feature {
                 if (containerNameCheck("At what price are you selling")) clock.start(randomizer());
                 if (containerNameCheck("At what price are you selling") && inventoryScanner.isMenuLoaded(35) && clock.shouldFire()) {
                     double unitPrice = inventoryScanner.getUnitPrice(12);
-                    bazaarMonitor.add(task.getBook(), unitPrice, true);
+                    bazaarMonitor.add(task.getBook(), unitPrice, true, 1);
                     pendingSellOfferAmounts.put(task.getBook(), unitPrice);
                     InventoryUtils.clickSlot(12, false);
                 }
@@ -1089,6 +1101,8 @@ public class BazaarFlipper implements Feature {
                     ProfitTracker.INSTANCE.updateSellOffer(task.getBook(),
                             pendingSellOfferAmounts.getOrDefault(task.getBook(), 0.0));
                     pendingSellOfferAmounts.remove(task.getBook());
+                    discordWebhookReporter.recordOrderPlaced("Sell offer · "
+                            + task.getBook().getRomanLevel(task.getBook().sellLevel()));
                     debug("[BazaarFlipper] REPLACE_SELL: replaced sell order for " + task.getBook());
                     task.setBookState(Task.BookState.SELL_ORDER);
                     debug("[BazaarFlipper] REPLACE_SELL: TaskSize:" + taskList.size());
@@ -1265,6 +1279,8 @@ public class BazaarFlipper implements Feature {
         }
 
         debug("[BazaarFlipper] onOrderNotice: parsed \"" + stripped + "\" isSellOffer=" + isSellOffer);
+        if (isSellOffer) discordWebhookReporter.recordSold(stripped);
+        else discordWebhookReporter.recordBought(stripped);
 
         for (Task task : taskList) {
             if (!stripped.equals(task.getBook().getRomanLevel(task.getBook().level())) && !isSellOffer) continue;

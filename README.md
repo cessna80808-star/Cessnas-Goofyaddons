@@ -6,6 +6,8 @@ GoofyAddons is a client-side Fabric mod with an in-game control panel for the Ba
 
 Start Minecraft with the mod installed, then open **http://127.0.0.1:8765** in a browser on the same computer. The local web panel displays live macro status, monitored active Bazaar orders, configured books, claimed-coin and active-sell-offer graphs; it lets you start or stop the flipper, edit settings and books, export profit history to CSV, and reset profit tracking. Claimed Bazaar coins count as realized; the total amount listed on active sell offers counts as unrealized. Profit history is stored in `config/goofyaddons-profit.json`. Changes save automatically one second after you stop editing. The panel is served by the Minecraft client and only bound to the local computer; Minecraft must remain running while you use it.
 
+Enable **Send Discord updates every 5 minutes** in the flipper settings and enter a Discord webhook URL to receive updates while the flipper is running. Each summary includes peak coins committed to monitored flipper buy orders, orders placed and filled since the previous update, current realized/unrealized totals, and an attached 24-hour chart with both series overlaid. Unrealized value is the total amount listed on active sell offers. The webhook URL is stored in `config/goofyaddons.json`; treat it as a secret.
+
 ## Controls
 
 - Press **O** to open the GoofyAddons control panel.
