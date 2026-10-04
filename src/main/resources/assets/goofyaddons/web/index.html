@@ -5,24 +5,51 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>GoofyAddons Control Panel</title>
   <style>
-    :root { color-scheme: dark; font: 15px/1.5 system-ui, sans-serif; background: #10141c; color: #e4eaf2; }
+    :root { color-scheme: dark; font: 15px/1.5 system-ui, sans-serif; background: #10141c; color: #e4eaf2; --accent: #55d6be; --surface: #202734; --line: #394454; --muted: #9ba8b8; }
     * { box-sizing: border-box; }
-    body { margin: 0; padding: 32px 16px; }
-    main { width: min(900px, 100%); margin: auto; }
-    header { display: flex; align-items: center; justify-content: space-between; gap: 16px; border-bottom: 1px solid #394454; padding-bottom: 20px; }
+    body { margin: 0; padding: 28px 16px; background: radial-gradient(ellipse at 50% -30%, #243b45 0, #10141c 55%); min-height: 100vh; }
+    main { width: min(1040px, 100%); margin: auto; }
+    header { display: flex; align-items: center; justify-content: space-between; gap: 16px; border-bottom: 1px solid var(--line); padding-bottom: 20px; }
     h1, h2, p { margin: 0; }
     h1 { font-size: 1.5rem; letter-spacing: .08em; }
-    h2 { font-size: 1rem; color: #55d6be; letter-spacing: .06em; margin-bottom: 14px; }
-    .muted, label { color: #9ba8b8; }
-    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 20px; }
-    section { background: #202734; border: 1px solid #394454; border-radius: 10px; padding: 20px; }
+    h2 { font-size: 1rem; color: var(--accent); letter-spacing: .06em; margin-bottom: 14px; }
+    .muted, label { color: var(--muted); }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .brand-mark { display: grid; width: 42px; height: 42px; place-items: center; border: 1px solid #55d6be66; border-radius: 13px; background: #55d6be16; color: var(--accent); font-weight: 900; box-shadow: 0 0 24px #55d6be18; }
+    .connection { display: flex; align-items: center; gap: 9px; color: var(--muted); font-size: .85rem; }
+    .live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 0 #55d6be88; animation: pulse 2s infinite; }
+    nav { display: flex; gap: 8px; overflow-x: auto; padding: 18px 0 4px; scrollbar-width: thin; }
+    .nav-link { flex: 0 0 auto; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--muted); padding: 8px 14px; transition: color .2s, background .2s, border-color .2s, transform .2s; }
+    .nav-link:hover { transform: translateY(-1px); color: #e4eaf2; }
+    .nav-link.active { color: var(--accent); border-color: #55d6be40; background: #55d6be12; }
+    .page-heading { display: flex; align-items: end; justify-content: space-between; gap: 16px; margin: 14px 0 18px; }
+    .page-heading h2 { margin: 0 0 3px; font-size: 1.2rem; color: #e4eaf2; letter-spacing: 0; }
+    .page-heading p { color: var(--muted); font-size: .9rem; }
+    .page { display: none; }
+    .page.active { display: block; animation: page-enter .32s both; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+    section { background: linear-gradient(145deg, #222a38, #1c232e); border: 1px solid var(--line); border-radius: 12px; padding: 20px; box-shadow: 0 10px 28px #00000014; transition: border-color .2s, transform .2s, box-shadow .2s; animation: card-enter .45s both; }
+    section:hover { border-color: #526075; box-shadow: 0 14px 34px #00000024; }
+    .page.active section:nth-child(2) { animation-delay: .05s; }
+    .page.active section:nth-child(3) { animation-delay: .1s; }
+    .page.active section:nth-child(4) { animation-delay: .15s; }
+    .page.active section:nth-child(5) { animation-delay: .2s; }
+    .wide { grid-column: 1 / -1; }
     .status-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     .status-item { min-width: 0; }
     .status-item span { display: block; color: #9ba8b8; font-size: .85rem; }
     .status-item strong { overflow-wrap: anywhere; }
+    .status-badge { display: inline-flex; align-items: center; gap: 8px; padding: 5px 10px; border: 1px solid #f2bb6655; border-radius: 99px; background: #f2bb6612; color: #f2bb66; font-size: .8rem; }
+    .status-badge.running { border-color: #55d6be55; background: #55d6be12; color: var(--accent); }
+    .status-badge .live-dot { background: currentColor; }
+    .overview-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }
+    .overview-stat { border-top: 1px solid var(--line); padding-top: 12px; }
+    .overview-stat span { display: block; color: var(--muted); font-size: .8rem; }
+    .overview-stat strong { font-size: 1.05rem; }
     .profit-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 18px; }
-    .profit-card { min-width: 0; border: 1px solid #394454; border-radius: 8px; padding: 12px; background: #141a24; }
-    .profit-card span { display: block; color: #9ba8b8; font-size: .85rem; }
+    .profit-card { min-width: 0; border: 1px solid var(--line); border-radius: 10px; padding: 15px; background: #141a24; transition: transform .2s, border-color .2s; }
+    .profit-card:hover { transform: translateY(-3px); border-color: #55d6be66; }
+    .profit-card span { display: block; color: var(--muted); font-size: .85rem; }
     .profit-card strong { display: block; margin-top: 3px; font-size: 1.2rem; overflow-wrap: anywhere; }
     .profit-charts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
     .profit-chart { min-width: 0; }
@@ -30,12 +57,15 @@
     .profit-chart canvas { display: block; width: 100%; height: 200px; }
     .profit-actions { margin: 12px 0 0; }
     .actions { display: flex; gap: 10px; margin-top: 18px; }
-    button { border: 0; border-radius: 6px; background: #55d6be; color: #10141c; font: inherit; font-weight: 700; padding: 9px 16px; cursor: pointer; }
+    button { border: 0; border-radius: 7px; background: var(--accent); color: #10141c; font: inherit; font-weight: 700; padding: 9px 16px; cursor: pointer; transition: filter .2s, transform .2s, box-shadow .2s; }
+    button:active { transform: scale(.97); }
+    button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
     button.secondary { background: #394454; color: #e4eaf2; }
-    button:hover { filter: brightness(1.1); }
+    button:hover { filter: brightness(1.1); box-shadow: 0 5px 16px #0003; }
     form { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     label { display: grid; gap: 5px; font-size: .85rem; }
     input { min-width: 0; width: 100%; border: 1px solid #526075; border-radius: 5px; background: #141a24; color: #e4eaf2; padding: 9px; font: inherit; }
+    select { min-width: 0; width: 100%; border: 1px solid #526075; border-radius: 5px; background: #141a24; color: #e4eaf2; padding: 9px; font: inherit; }
     .checkbox { display: flex; align-items: center; gap: 8px; }
     .checkbox input { width: auto; }
     .wide { grid-column: 1 / -1; }
@@ -45,35 +75,102 @@
     .book-editor-row button { padding: 8px 10px; }
     .order-row { display: flex; justify-content: space-between; gap: 12px; border-top: 1px solid #394454; padding-top: 8px; }
     .order-row span:last-child { white-space: nowrap; }
+    .order-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+    .order-toolbar label { display: flex; align-items: center; gap: 8px; }
+    .order-toolbar select { width: auto; min-width: 150px; }
+    .order-count { margin-left: auto; color: var(--muted); font-size: .85rem; }
+    .empty-state { display: grid; min-height: 140px; place-items: center; border: 1px dashed #526075; border-radius: 10px; color: var(--muted); text-align: center; padding: 20px; }
     .hint { font-size: .85rem; margin: 10px 0; }
-    #message { min-height: 1.5em; margin-top: 12px; color: #55d6be; }
+    #message { min-height: 1.5em; margin-top: 12px; color: var(--accent); transition: color .2s; }
     #message.error { color: #ff7777; }
+    footer { padding: 24px 0 4px; color: #6f7b8b; text-align: center; font-size: .8rem; }
+    @keyframes pulse { 70% { box-shadow: 0 0 0 7px #55d6be00; } 100% { box-shadow: 0 0 0 0 #55d6be00; } }
+    @keyframes page-enter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes card-enter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
     @media (max-width: 800px) { .book-editor-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } .book-editor-row button { grid-column: 1 / -1; } }
-    @media (max-width: 650px) { body { padding: 20px 12px; } header { align-items: flex-start; flex-direction: column; } .grid, .profit-charts { grid-template-columns: 1fr; } .profit-summary { grid-template-columns: 1fr; } }
+    @media (max-width: 650px) { body { padding: 20px 12px; } header { align-items: flex-start; flex-direction: column; } .grid, .profit-charts { grid-template-columns: 1fr; } .profit-summary { grid-template-columns: 1fr; } .overview-stats { grid-template-columns: 1fr; } .order-toolbar { align-items: stretch; flex-direction: column; } .order-count { margin-left: 0; } }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }
   </style>
 </head>
 <body>
 <main>
   <header>
-    <div><h1>GOOFY ADDONS</h1><p class="muted">Bazaar Flipper browser control panel</p></div>
-    <p class="muted">Connected to this Minecraft client</p>
+    <div class="brand"><div class="brand-mark">G</div><div><h1>GOOFY ADDONS</h1><p class="muted">Bazaar Flipper control panel</p></div></div>
+    <p class="connection"><span class="live-dot"></span>Connected to this Minecraft client</p>
   </header>
-  <div class="grid">
-    <section>
-      <h2>LIVE STATUS</h2>
-      <div class="status-grid">
-        <div class="status-item"><span>Macro</span><strong id="running">Loading…</strong></div>
-        <div class="status-item"><span>Feature</span><strong id="feature">—</strong></div>
-        <div class="status-item"><span>State</span><strong id="state">—</strong></div>
-        <div class="status-item"><span>Active tasks</span><strong id="tasks">—</strong></div>
-        <div class="status-item wide"><span>Active failsafes</span><strong id="failsafes">—</strong></div>
-      </div>
-      <div class="actions">
-        <button type="button" id="start">Start</button>
-        <button type="button" class="secondary" id="stop">Stop</button>
-      </div>
-    </section>
-    <section>
+  <nav aria-label="Main navigation">
+    <button class="nav-link active" type="button" data-page="overview">Overview</button>
+    <button class="nav-link" type="button" data-page="profit">Profit</button>
+    <button class="nav-link" type="button" data-page="orders">Orders</button>
+    <button class="nav-link" type="button" data-page="settings">Settings</button>
+    <button class="nav-link" type="button" data-page="books">Books</button>
+  </nav>
+  <div class="page-heading"><div><h2 id="pageTitle">Overview</h2><p id="pageDescription">Your Bazaar Flipper at a glance.</p></div></div>
+  <div class="page active" id="page-overview" data-title="Overview" data-description="Your Bazaar Flipper at a glance.">
+    <div class="grid">
+      <section>
+        <h2>LIVE STATUS</h2>
+        <div class="status-grid">
+          <div class="status-item"><span>Macro</span><strong id="running" class="status-badge"><span class="live-dot"></span>Loading…</strong></div>
+          <div class="status-item"><span>Feature</span><strong id="feature">—</strong></div>
+          <div class="status-item"><span>State</span><strong id="state">—</strong></div>
+          <div class="status-item"><span>Active tasks</span><strong id="tasks">—</strong></div>
+          <div class="status-item wide"><span>Active failsafes</span><strong id="failsafes">—</strong></div>
+        </div>
+        <div class="actions">
+          <button type="button" id="start">Start</button>
+          <button type="button" class="secondary" id="stop">Stop</button>
+        </div>
+      </section>
+      <section>
+        <h2>AT A GLANCE</h2>
+        <div class="overview-stats">
+          <div class="overview-stat"><span>Realized coins</span><strong id="overviewRealized">Loading…</strong></div>
+          <div class="overview-stat"><span>On sell offers</span><strong id="overviewUnrealized">Loading…</strong></div>
+          <div class="overview-stat"><span>Open flips</span><strong id="overviewFlips">—</strong></div>
+        </div>
+        <div class="actions"><button type="button" class="secondary" data-go="profit">View profit charts</button><button type="button" class="secondary" data-go="settings">Settings</button></div>
+      </section>
+    </div>
+  </div>
+  <div class="page" id="page-profit" data-title="Profit" data-description="Track claimed coins and sell-offer value over time.">
+    <div class="grid">
+      <section class="wide">
+        <h2>PROFIT TRACKER</h2>
+        <div class="profit-summary">
+          <div class="profit-card"><span>Realized (claimed coins)</span><strong id="realizedProfit">Loading…</strong></div>
+          <div class="profit-card"><span>Sell offers (unrealized)</span><strong id="unrealizedProfit">Loading…</strong></div>
+          <div class="profit-card"><span>Open flips</span><strong id="openFlips">—</strong></div>
+        </div>
+        <div class="profit-charts">
+          <div class="profit-chart"><h3>Claimed coins over time</h3><canvas id="realizedChart" role="img" aria-label="Claimed Bazaar coins history"></canvas></div>
+          <div class="profit-chart"><h3>Coins on sell offers over time</h3><canvas id="unrealizedChart" role="img" aria-label="Total amount on open sell offers"></canvas></div>
+        </div>
+        <div class="actions profit-actions">
+          <button type="button" class="secondary" id="exportProfit">Export CSV</button>
+          <button type="button" class="secondary" id="resetProfit">Reset tracker</button>
+        </div>
+        <p class="muted hint">Realized records Bazaar coins when claimed. Unrealized is the total amount listed on active sell offers; flips without a posted sell offer are not included. Older estimated totals were cleared because they cannot be converted to claimed coin amounts.</p>
+      </section>
+    </div>
+  </div>
+  <div class="page" id="page-orders" data-title="Orders" data-description="See and sort currently monitored Bazaar orders.">
+    <div class="grid">
+      <section class="wide">
+        <h2>ACTIVE ORDERS</h2>
+        <div class="order-toolbar">
+          <label for="orderSort">Sort by
+            <select id="orderSort"><option value="product">Product name</option><option value="type">Order type</option><option value="price">Price</option></select>
+          </label>
+          <button type="button" class="secondary" id="orderDirection" aria-label="Toggle sort direction">Ascending ↑</button>
+          <span class="order-count" id="orderCount">Refreshing…</span>
+        </div>
+        <div id="orders" class="muted">Loading…</div>
+      </section>
+    </div>
+  </div>
+  <div class="page" id="page-settings" data-title="Settings" data-description="Tune the flipper and webhook updates. Changes save automatically.">
+    <div class="grid"><section class="wide">
       <h2>FLIPPER SETTINGS</h2>
       <form id="settings">
         <label class="checkbox wide"><input id="speedMode" name="speedMode" type="checkbox"> Speed mode</label>
@@ -82,45 +179,75 @@
         <label>Maximum action delay (ms)<input id="maxActionDelay" name="maxActionDelay" type="number" min="52" step="1" required></label>
         <label class="wide">First storage page command<input id="firstPage" name="firstPage" maxlength="128" required></label>
         <label class="wide">Second storage page command<input id="secondPage" name="secondPage" maxlength="128" required></label>
-        <label class="checkbox wide"><input id="discordWebhookEnabled" name="discordWebhookEnabled" type="checkbox"> Send Discord updates every 5 minutes</label>
+        <label class="checkbox wide"><input id="discordWebhookEnabled" name="discordWebhookEnabled" type="checkbox"> Send Discord updates</label>
+        <label>Webhook update frequency
+          <select id="discordWebhookIntervalSeconds" name="discordWebhookIntervalSeconds">
+            <option value="30">Every 30 seconds</option>
+            <option value="60">Every 1 minute</option>
+            <option value="300">Every 5 minutes</option>
+            <option value="900">Every 15 minutes</option>
+            <option value="3600">Every 1 hour</option>
+          </select>
+        </label>
+        <label>Webhook chart time range
+          <select id="discordWebhookChartRangeSeconds" name="discordWebhookChartRangeSeconds">
+            <option value="30">Last 30 seconds</option>
+            <option value="60">Last 1 minute</option>
+            <option value="300">Last 5 minutes</option>
+            <option value="900">Last 15 minutes</option>
+            <option value="3600">Last 1 hour</option>
+            <option value="21600">Last 6 hours</option>
+            <option value="86400">Last 24 hours</option>
+          </select>
+        </label>
         <label class="wide">Discord webhook URL<input id="discordWebhookUrl" name="discordWebhookUrl" type="password" maxlength="500" autocomplete="new-password" placeholder="https://discord.com/api/webhooks/…"></label>
       </form>
       <p class="muted hint">Changes save automatically one second after you stop editing. The webhook URL is stored in your local Minecraft config; keep it private.</p>
       <p id="message" role="status"></p>
-    </section>
-    <section class="wide">
-      <h2>PROFIT TRACKER</h2>
-      <div class="profit-summary">
-        <div class="profit-card"><span>Realized (claimed coins)</span><strong id="realizedProfit">Loading…</strong></div>
-        <div class="profit-card"><span>Sell offers (unrealized)</span><strong id="unrealizedProfit">Loading…</strong></div>
-        <div class="profit-card"><span>Open flips</span><strong id="openFlips">—</strong></div>
-      </div>
-      <div class="profit-charts">
-        <div class="profit-chart"><h3>Claimed coins over time</h3><canvas id="realizedChart" role="img" aria-label="Claimed Bazaar coins history"></canvas></div>
-        <div class="profit-chart"><h3>Coins on sell offers over time</h3><canvas id="unrealizedChart" role="img" aria-label="Total amount on open sell offers"></canvas></div>
-      </div>
-      <div class="actions profit-actions">
-        <button type="button" class="secondary" id="exportProfit">Export CSV</button>
-        <button type="button" class="secondary" id="resetProfit">Reset tracker</button>
-      </div>
-      <p class="muted hint">Realized records Bazaar coins when claimed. Unrealized is the total amount listed on active sell offers; flips without a posted sell offer are not included. Older estimated totals were cleared because they cannot be converted to claimed coin amounts.</p>
-    </section>
-    <section class="wide">
-      <h2>ACTIVE ORDERS</h2>
-      <div id="orders" class="muted">Loading…</div>
-    </section>
-    <section class="wide">
+    </section></div>
+  </div>
+  <div class="page" id="page-books" data-title="Books" data-description="Manage the books the Bazaar Flipper looks for.">
+    <div class="grid"><section class="wide">
       <h2>CONFIGURED BOOKS</h2>
       <div id="books" class="book-list"></div>
       <button type="button" class="secondary" id="addBook">Add book</button>
-    </section>
+    </section></div>
   </div>
+  <footer>GoofyAddons <span aria-hidden="true">·</span> A little more control, a little less tab chaos.</footer>
 </main>
 <script>
   const message = document.getElementById("message");
+  const pageButtons = Array.from(document.querySelectorAll(".nav-link"));
+  const pages = Array.from(document.querySelectorAll(".page"));
   let saveTimer;
   let saving = false;
   let savePending = false;
+  let currentOrders = [];
+  let sortDirection = 1;
+  function showPage(name, updateHash = true) {
+    const page = document.getElementById(`page-${name}`);
+    if (!page) return;
+    pages.forEach(item => {
+      const active = item === page;
+      item.classList.toggle("active", active);
+      item.setAttribute("aria-hidden", String(!active));
+    });
+    pageButtons.forEach(button => {
+      const active = button.dataset.page === name;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-current", active ? "page" : "false");
+    });
+    document.getElementById("pageTitle").textContent = page.dataset.title;
+    document.getElementById("pageDescription").textContent = page.dataset.description;
+    if (updateHash && location.hash !== `#${name}`) history.replaceState(null, "", `#${name}`);
+    if (name === "profit") refreshProfit().catch(error => setMessage(error.message, true));
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+  pageButtons.forEach(button => button.addEventListener("click", () => showPage(button.dataset.page)));
+  document.querySelectorAll("[data-go]").forEach(button => button.addEventListener("click", () => showPage(button.dataset.go)));
+  window.addEventListener("hashchange", () => showPage(location.hash.slice(1) || "overview", false));
+  showPage(location.hash.slice(1) || "overview", false);
+
   const setMessage = (text, error = false) => {
     message.textContent = text;
     message.classList.toggle("error", error);
@@ -134,14 +261,18 @@
   async function refreshStatus() {
     try {
       const status = await request("/api/status");
-      document.getElementById("running").textContent = status.running ? "RUNNING" : "STOPPED";
+      const running = document.getElementById("running");
+      running.classList.toggle("running", status.running);
+      running.lastChild.textContent = status.running ? "RUNNING" : "STOPPED";
       document.getElementById("start").textContent = status.state === "Paused" ? "Resume" : "Start";
       document.getElementById("feature").textContent = status.feature;
       document.getElementById("state").textContent = status.state;
       document.getElementById("tasks").textContent = status.activeTasks;
       document.getElementById("failsafes").textContent = status.activeFailsafes.length ? status.activeFailsafes.join(", ") : "None";
     } catch (error) {
-      document.getElementById("running").textContent = "Disconnected";
+      const running = document.getElementById("running");
+      running.classList.remove("running");
+      running.lastChild.textContent = "Disconnected";
       setMessage(error.message, true);
     }
   }
@@ -193,11 +324,18 @@
   }
   async function refreshProfit() {
     const data = await request("/api/profit");
-    document.getElementById("realizedProfit").textContent = formatCoins(data.realizedProfit);
-    document.getElementById("unrealizedProfit").textContent = formatCoins(data.unrealizedProfit);
+    const realized = formatCoins(data.realizedProfit);
+    const unrealized = formatCoins(data.unrealizedProfit);
+    document.getElementById("realizedProfit").textContent = realized;
+    document.getElementById("unrealizedProfit").textContent = unrealized;
     document.getElementById("openFlips").textContent = data.openFlips;
-    drawChart(document.getElementById("realizedChart"), data.realizedHistory, "#55d6be");
-    drawChart(document.getElementById("unrealizedChart"), data.unrealizedHistory, "#f2bb66");
+    document.getElementById("overviewRealized").textContent = realized;
+    document.getElementById("overviewUnrealized").textContent = unrealized;
+    document.getElementById("overviewFlips").textContent = data.openFlips;
+    if (document.getElementById("page-profit").classList.contains("active")) {
+      drawChart(document.getElementById("realizedChart"), data.realizedHistory, "#55d6be");
+      drawChart(document.getElementById("unrealizedChart"), data.unrealizedHistory, "#f2bb66");
+    }
   }
   async function exportProfit() {
     const data = await request("/api/profit");
@@ -233,13 +371,28 @@
     }
   });
   async function refreshOrders() {
-    const orders = await request("/api/orders");
+    currentOrders = await request("/api/orders");
+    renderOrders();
+  }
+  function renderOrders() {
     const container = document.getElementById("orders");
     container.replaceChildren();
-    if (!orders.length) {
-      container.textContent = "No active orders are being monitored";
+    const orderCount = document.getElementById("orderCount");
+    orderCount.textContent = `${currentOrders.length} monitored ${currentOrders.length === 1 ? "order" : "orders"}`;
+    if (!currentOrders.length) {
+      const empty = document.createElement("div");
+      empty.className = "empty-state";
+      empty.textContent = "No active orders are being monitored";
+      container.append(empty);
       return;
     }
+    const sortBy = document.getElementById("orderSort").value;
+    const orders = [...currentOrders].sort((left, right) => {
+      let comparison;
+      if (sortBy === "price") comparison = Number(left.price) - Number(right.price);
+      else comparison = String(left[sortBy] ?? "").localeCompare(String(right[sortBy] ?? ""), undefined, { sensitivity: "base" });
+      return comparison * sortDirection;
+    });
     for (const order of orders) {
       const row = document.createElement("div");
       row.className = "order-row";
@@ -251,6 +404,12 @@
       container.append(row);
     }
   }
+  document.getElementById("orderSort").addEventListener("change", renderOrders);
+  document.getElementById("orderDirection").addEventListener("click", event => {
+    sortDirection *= -1;
+    event.currentTarget.textContent = sortDirection === 1 ? "Ascending ↑" : "Descending ↓";
+    renderOrders();
+  });
   function addBookRow(book = {}) {
     const row = document.createElement("div");
     row.className = "book-editor-row";
@@ -322,7 +481,8 @@
       data = Object.fromEntries(new FormData(document.getElementById("settings")));
       data.speedMode = document.getElementById("speedMode").checked;
       data.discordWebhookEnabled = document.getElementById("discordWebhookEnabled").checked;
-      for (const key of ["speedModeDelay", "minActionDelay", "maxActionDelay"]) data[key] = Number(data[key]);
+      for (const key of ["speedModeDelay", "minActionDelay", "maxActionDelay",
+        "discordWebhookIntervalSeconds", "discordWebhookChartRangeSeconds"]) data[key] = Number(data[key]);
       data.books = readBooks();
     } catch (error) {
       setMessage(error.message, true);
@@ -343,7 +503,8 @@
   }
   async function loadConfig() {
     const config = await request("/api/config");
-    for (const key of ["speedMode", "speedModeDelay", "minActionDelay", "maxActionDelay", "firstPage", "secondPage", "discordWebhookEnabled", "discordWebhookUrl"]) {
+    for (const key of ["speedMode", "speedModeDelay", "minActionDelay", "maxActionDelay", "firstPage", "secondPage",
+      "discordWebhookEnabled", "discordWebhookUrl", "discordWebhookIntervalSeconds", "discordWebhookChartRangeSeconds"]) {
       const input = document.getElementById(key);
       if (input.type === "checkbox") input.checked = config[key];
       else input.value = config[key];
@@ -378,7 +539,11 @@
   setInterval(refreshStatus, 1500);
   setInterval(() => refreshOrders().catch(error => setMessage(error.message, true)), 1500);
   setInterval(() => refreshProfit().catch(error => setMessage(error.message, true)), 5000);
-  window.addEventListener("resize", () => refreshProfit().catch(error => setMessage(error.message, true)));
+  window.addEventListener("resize", () => {
+    if (document.getElementById("page-profit").classList.contains("active")) {
+      refreshProfit().catch(error => setMessage(error.message, true));
+    }
+  });
 </script>
 </body>
 </html>

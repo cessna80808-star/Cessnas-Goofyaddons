@@ -27,7 +27,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class DiscordWebhookReporter {
-    private static final long REPORT_INTERVAL_MS = 5 * 60 * 1000L;
+    private static final int DEFAULT_REPORT_INTERVAL_SECONDS = 300;
+    private static final int DEFAULT_CHART_RANGE_SECONDS = 86400;
     private static final int MAX_ACTIVITY_ENTRIES = 50;
     private static final int CHART_WIDTH = 900;
     private static final int CHART_HEIGHT = 440;
@@ -45,6 +46,7 @@ public final class DiscordWebhookReporter {
     private final AtomicBoolean sending = new AtomicBoolean();
     private long nextReportAt;
     private String trackedWebhookUrl = "";
+    private int trackedReportIntervalSeconds;
     private double peakBuyOrderCoins;
 
     public synchronized void start() {
@@ -52,8 +54,9 @@ public final class DiscordWebhookReporter {
         bought.clear();
         sold.clear();
         peakBuyOrderCoins = 0;
-        nextReportAt = System.currentTimeMillis() + REPORT_INTERVAL_MS;
+        nextReportAt = 0;
         trackedWebhookUrl = "";
+        trackedReportIntervalSeconds = 0;
     }
 
     public synchronized void recordOrderPlaced(String description) {
@@ -79,15 +82,19 @@ public final class DiscordWebhookReporter {
             return;
         }
 
+        int reportIntervalSeconds = supportedReportInterval(GoofyConfig.INSTANCE.discordWebhookIntervalSeconds);
+        int chartRangeSeconds = supportedChartRange(GoofyConfig.INSTANCE.discordWebhookChartRangeSeconds);
         long now = System.currentTimeMillis();
         synchronized (this) {
-            if (nextReportAt == 0 || !trackedWebhookUrl.equals(webhookUrl)) {
+            if (nextReportAt == 0 || !trackedWebhookUrl.equals(webhookUrl)
+                    || trackedReportIntervalSeconds != reportIntervalSeconds) {
                 trackedWebhookUrl = webhookUrl;
-                nextReportAt = now + REPORT_INTERVAL_MS;
+                trackedReportIntervalSeconds = reportIntervalSeconds;
+                nextReportAt = now + reportIntervalSeconds * 1000L;
             }
             peakBuyOrderCoins = Math.max(peakBuyOrderCoins, activeBuyOrderCoins);
             if (now < nextReportAt || !sending.compareAndSet(false, true)) return;
-            nextReportAt = now + REPORT_INTERVAL_MS;
+            nextReportAt = now + reportIntervalSeconds * 1000L;
         }
 
         ProfitTracker.Snapshot snapshot = ProfitTracker.INSTANCE.snapshot();
@@ -95,7 +102,8 @@ public final class DiscordWebhookReporter {
         List<ProfitTracker.ProfitPoint> unrealizedHistory = snapshot.unrealizedHistory();
         byte[] chart;
         try {
-            chart = createChart(realizedHistory, unrealizedHistory, snapshot.realizedProfit(), snapshot.unrealizedProfit(), now);
+            chart = createChart(realizedHistory, unrealizedHistory, snapshot.realizedProfit(),
+                    snapshot.unrealizedProfit(), now, chartRangeSeconds);
         } catch (IOException exception) {
             sending.set(false);
             GoofyAddons.LOGGER.error("Could not create the Discord profit chart", exception);
@@ -113,7 +121,7 @@ public final class DiscordWebhookReporter {
             peak = peakBuyOrderCoins;
         }
 
-        sendReport(webhookUrl, snapshot, orderedCopy, boughtCopy, soldCopy, peak, chart)
+        sendReport(webhookUrl, snapshot, orderedCopy, boughtCopy, soldCopy, peak, chart, reportIntervalSeconds)
                 .whenComplete((ignored, error) -> {
                     if (error == null) {
                         synchronized (DiscordWebhookReporter.this) {
@@ -133,7 +141,8 @@ public final class DiscordWebhookReporter {
 
     private CompletableFuture<Void> sendReport(String webhookUrl, ProfitTracker.Snapshot snapshot,
                                                List<String> orderedCopy, List<String> boughtCopy,
-                                               List<String> soldCopy, double peak, byte[] chart) {
+                                               List<String> soldCopy, double peak, byte[] chart,
+                                               int reportIntervalSeconds) {
         try {
             URI uri = validateWebhookUri(webhookUrl);
             String boundary = "GoofyAddons-" + UUID.randomUUID();
@@ -143,7 +152,7 @@ public final class DiscordWebhookReporter {
             payload.add("allowed_mentions", allowedMentions);
             JsonArray embeds = new JsonArray();
             JsonObject embed = new JsonObject();
-            embed.addProperty("title", "Bazaar Flipper · 5-minute update");
+            embed.addProperty("title", "Bazaar Flipper · " + formatDuration(reportIntervalSeconds) + " update");
             embed.addProperty("color", 5620926);
             embed.addProperty("timestamp", Instant.now().toString());
             embed.addProperty("description", "Peak coins committed to monitored flipper buy orders: **"
@@ -236,6 +245,26 @@ public final class DiscordWebhookReporter {
         return String.format(java.util.Locale.ROOT, "%.0f", coins);
     }
 
+    private static String formatDuration(int seconds) {
+        if (seconds < 60) return seconds + "s";
+        if (seconds < 3600) return seconds / 60 + "m";
+        return seconds / 3600 + "h";
+    }
+
+    private static int supportedReportInterval(int seconds) {
+        return switch (seconds) {
+            case 30, 60, 300, 900, 3600 -> seconds;
+            default -> DEFAULT_REPORT_INTERVAL_SECONDS;
+        };
+    }
+
+    private static int supportedChartRange(int seconds) {
+        return switch (seconds) {
+            case 30, 60, 300, 900, 3600, 21600, 86400 -> seconds;
+            default -> DEFAULT_CHART_RANGE_SECONDS;
+        };
+    }
+
     private static byte[] multipart(String boundary, String payload, byte[] chart) throws IOException {
         ByteArrayOutputStream body = new ByteArrayOutputStream();
         writePart(body, boundary, "payload_json", "application/json", payload.getBytes(StandardCharsets.UTF_8));
@@ -258,8 +287,9 @@ public final class DiscordWebhookReporter {
 
     private static byte[] createChart(List<ProfitTracker.ProfitPoint> realizedHistory,
                                       List<ProfitTracker.ProfitPoint> unrealizedHistory,
-                                      double currentRealized, double currentUnrealized, long now) throws IOException {
-        long from = now - 24 * 60 * 60 * 1000L;
+                                      double currentRealized, double currentUnrealized, long now,
+                                      int chartRangeSeconds) throws IOException {
+        long from = now - chartRangeSeconds * 1000L;
         List<ProfitTracker.ProfitPoint> realizedPoints = pointsForChart(realizedHistory, currentRealized, from, now);
         List<ProfitTracker.ProfitPoint> unrealizedPoints = pointsForChart(unrealizedHistory, currentUnrealized, from, now);
         double max = Math.max(1, Math.max(
@@ -273,7 +303,8 @@ public final class DiscordWebhookReporter {
             graphics.fillRect(0, 0, CHART_WIDTH, CHART_HEIGHT);
             graphics.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 22));
             graphics.setColor(TEXT);
-            graphics.drawString("Realized and unrealized Bazaar profits · last 24 hours", 28, 34);
+            graphics.drawString("Realized and unrealized Bazaar profits · last "
+                    + formatDuration(chartRangeSeconds), 28, 34);
 
             int left = 90, right = 28, top = 72, bottom = 72;
             int plotWidth = CHART_WIDTH - left - right, plotHeight = CHART_HEIGHT - top - bottom;
@@ -297,7 +328,7 @@ public final class DiscordWebhookReporter {
             graphics.drawString("Unrealized · " + formatCoins(currentUnrealized), legendX + 20, CHART_HEIGHT - 31);
             graphics.setColor(MUTED);
             graphics.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 12));
-            graphics.drawString("24h ago", left, CHART_HEIGHT - 54);
+            graphics.drawString(formatDuration(chartRangeSeconds) + " ago", left, CHART_HEIGHT - 54);
             graphics.drawString("Now", CHART_WIDTH - right - 26, CHART_HEIGHT - 54);
             graphics.drawString("Unrealized is the total value listed on active sell offers.", left, CHART_HEIGHT - 10);
         } finally {

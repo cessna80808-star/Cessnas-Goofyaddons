@@ -132,6 +132,10 @@ public final class WebGuiServer {
                         String secondPage = requiredText(submitted, "secondPage");
                         boolean discordWebhookEnabled = requiredBoolean(submitted, "discordWebhookEnabled");
                         String discordWebhookUrl = requiredDiscordWebhookUrl(submitted);
+                        int discordWebhookIntervalSeconds = requiredChoice(submitted,
+                                "discordWebhookIntervalSeconds", 30, 60, 300, 900, 3600);
+                        int discordWebhookChartRangeSeconds = requiredChoice(submitted,
+                                "discordWebhookChartRangeSeconds", 30, 60, 300, 900, 3600, 21600, 86400);
                         var books = requiredBooks(submitted);
 
                         if (speedDelay < 1 || minDelay < 51 || maxDelay <= minDelay) {
@@ -149,6 +153,8 @@ public final class WebGuiServer {
                         config.secondPage = secondPage;
                         config.discordWebhookEnabled = discordWebhookEnabled;
                         config.discordWebhookUrl = discordWebhookUrl;
+                        config.discordWebhookIntervalSeconds = discordWebhookIntervalSeconds;
+                        config.discordWebhookChartRangeSeconds = discordWebhookChartRangeSeconds;
                         config.books = books;
                         if (!GoofyConfig.save()) {
                             throw new IllegalStateException("Could not save settings; check the Minecraft log");
@@ -297,6 +303,14 @@ public final class WebGuiServer {
         } catch (NumberFormatException exception) {
             throw new IllegalArgumentException(key + " is outside the supported range");
         }
+    }
+
+    private static int requiredChoice(JsonObject json, String key, int... choices) {
+        int value = requiredInteger(json, key);
+        for (int choice : choices) {
+            if (value == choice) return value;
+        }
+        throw new IllegalArgumentException("Unsupported value for " + key);
     }
 
     private static String requiredText(JsonObject json, String key) {

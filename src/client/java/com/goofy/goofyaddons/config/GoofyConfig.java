@@ -35,6 +35,8 @@ public class GoofyConfig {
     public String secondPage = "ec 2";
     public boolean discordWebhookEnabled = false;
     public String discordWebhookUrl = "";
+    public int discordWebhookIntervalSeconds = 300;
+    public int discordWebhookChartRangeSeconds = 86400;
 
 
     public static void load() {
