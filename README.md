@@ -1,6 +1,6 @@
-# GoofyAddons
+# Cessnas GoofyAddons
 
-GoofyAddons is an improved fork of **GoofyAddons by cessna808**.
+Cessnas GoofyAddons is an improved fork of **GoofyAddons by cessna808**.
 
 This client-side Fabric mod includes a Bazaar Flipper and an in-game control panel.
 
