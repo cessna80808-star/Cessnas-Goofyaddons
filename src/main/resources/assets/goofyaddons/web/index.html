@@ -56,7 +56,7 @@
     .profit-chart h3 { margin: 0 0 6px; color: #9ba8b8; font-size: .85rem; font-weight: 500; }
     .profit-chart canvas { display: block; width: 100%; height: 200px; }
     .profit-actions { margin: 12px 0 0; }
-    .actions { display: flex; gap: 10px; margin-top: 18px; }
+    .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
     button { border: 0; border-radius: 7px; background: var(--accent); color: #10141c; font: inherit; font-weight: 700; padding: 9px 16px; cursor: pointer; transition: filter .2s, transform .2s, box-shadow .2s; }
     button:active { transform: scale(.97); }
     button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -65,6 +65,8 @@
     form { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     label { display: grid; gap: 5px; font-size: .85rem; }
     input { min-width: 0; width: 100%; border: 1px solid #526075; border-radius: 5px; background: #141a24; color: #e4eaf2; padding: 9px; font: inherit; }
+    input[type="range"] { padding: 0; accent-color: var(--accent); }
+    .range-setting output { color: #e4eaf2; font-variant-numeric: tabular-nums; }
     select { min-width: 0; width: 100%; border: 1px solid #526075; border-radius: 5px; background: #141a24; color: #e4eaf2; padding: 9px; font: inherit; }
     .checkbox { display: flex; align-items: center; gap: 8px; }
     .checkbox input { width: auto; }
@@ -119,7 +121,10 @@
         </div>
         <div class="actions">
           <button type="button" id="start">Start</button>
+          <button type="button" class="secondary" id="pause" disabled>Pause</button>
+          <button type="button" class="secondary" id="resume" disabled>Resume</button>
           <button type="button" class="secondary" id="stop">Stop</button>
+          <button type="button" class="secondary" id="reloadConfig">Reload settings</button>
         </div>
       </section>
       <section>
@@ -179,6 +184,16 @@
         <label>Maximum action delay (ms)<input id="maxActionDelay" name="maxActionDelay" type="number" min="52" step="1" required></label>
         <label class="wide">First storage page command<input id="firstPage" name="firstPage" maxlength="128" required></label>
         <label class="wide">Second storage page command<input id="secondPage" name="secondPage" maxlength="128" required></label>
+        <h3 class="wide">Breaks</h3>
+        <label class="range-setting">Minimum time between breaks <output id="minBreakIntervalMinutesValue" for="minBreakIntervalMinutes"></output><input id="minBreakIntervalMinutes" name="minBreakIntervalMinutes" type="range" min="15" max="720" step="15"></label>
+        <label class="range-setting">Maximum time between breaks <output id="maxBreakIntervalMinutesValue" for="maxBreakIntervalMinutes"></output><input id="maxBreakIntervalMinutes" name="maxBreakIntervalMinutes" type="range" min="15" max="720" step="15"></label>
+        <label class="range-setting">Minimum break duration <output id="minBreakDurationMinutesValue" for="minBreakDurationMinutes"></output><input id="minBreakDurationMinutes" name="minBreakDurationMinutes" type="range" min="1" max="180" step="1"></label>
+        <label class="range-setting">Maximum break duration <output id="maxBreakDurationMinutesValue" for="maxBreakDurationMinutes"></output><input id="maxBreakDurationMinutes" name="maxBreakDurationMinutes" type="range" min="1" max="180" step="1"></label>
+        <h3 class="wide">Sleep time</h3>
+        <label class="checkbox wide"><input id="sleepTimeEnabled" name="sleepTimeEnabled" type="checkbox"> Pause automation during sleep time</label>
+        <label>Sleep starts (local time)<input id="sleepStartTime" name="sleepStartTime" type="time" required></label>
+        <label>Sleep ends (local time)<input id="sleepEndTime" name="sleepEndTime" type="time" required></label>
+        <p class="muted hint wide">Breaks happen after a random interval within the range above and last for a random duration within the duration range. Sleep time uses this computer’s local time and supports overnight ranges.</p>
         <label class="checkbox wide"><input id="discordWebhookEnabled" name="discordWebhookEnabled" type="checkbox"> Send Discord updates</label>
         <label>Webhook update frequency
           <select id="discordWebhookIntervalSeconds" name="discordWebhookIntervalSeconds">
@@ -200,6 +215,7 @@
             <option value="86400">Last 24 hours</option>
           </select>
         </label>
+        <label class="checkbox wide"><input id="roundGraphs" name="roundGraphs" type="checkbox"> Use rounded graph lines on the website and Discord charts</label>
         <label class="wide">Discord webhook URL<input id="discordWebhookUrl" name="discordWebhookUrl" type="password" maxlength="500" autocomplete="new-password" placeholder="https://discord.com/api/webhooks/…"></label>
       </form>
       <p class="muted hint">Changes save automatically one second after you stop editing. The webhook URL is stored in your local Minecraft config; keep it private.</p>
@@ -224,6 +240,7 @@
   let savePending = false;
   let currentOrders = [];
   let sortDirection = 1;
+  let roundGraphs = true;
   function showPage(name, updateHash = true) {
     const page = document.getElementById(`page-${name}`);
     if (!page) return;
@@ -264,7 +281,9 @@
       const running = document.getElementById("running");
       running.classList.toggle("running", status.running);
       running.lastChild.textContent = status.running ? "RUNNING" : "STOPPED";
-      document.getElementById("start").textContent = status.state === "Paused" ? "Resume" : "Start";
+      document.getElementById("start").disabled = status.state === "Paused";
+      document.getElementById("pause").disabled = !status.running;
+      document.getElementById("resume").disabled = status.state !== "Paused";
       document.getElementById("feature").textContent = status.feature;
       document.getElementById("state").textContent = status.state;
       document.getElementById("tasks").textContent = status.activeTasks;
@@ -318,7 +337,15 @@
       const x = padding.left + (points.length === 1 ? plotWidth : plotWidth * index / (points.length - 1));
       const yPos = y(Number(point.value));
       if (index === 0) context.moveTo(x, yPos);
-      else context.lineTo(x, yPos);
+      else if (roundGraphs && points.length > 2) {
+        const previous = points[index - 1];
+        const previousX = padding.left + plotWidth * (index - 1) / (points.length - 1);
+        const previousY = y(Number(previous.value));
+        const middleX = (previousX + x) / 2;
+        const middleY = (previousY + yPos) / 2;
+        context.quadraticCurveTo(previousX, previousY, middleX, middleY);
+        if (index === points.length - 1) context.lineTo(x, yPos);
+      } else context.lineTo(x, yPos);
     });
     context.stroke();
   }
@@ -481,7 +508,10 @@
       data = Object.fromEntries(new FormData(document.getElementById("settings")));
       data.speedMode = document.getElementById("speedMode").checked;
       data.discordWebhookEnabled = document.getElementById("discordWebhookEnabled").checked;
+      data.roundGraphs = document.getElementById("roundGraphs").checked;
+      data.sleepTimeEnabled = document.getElementById("sleepTimeEnabled").checked;
       for (const key of ["speedModeDelay", "minActionDelay", "maxActionDelay",
+        "minBreakIntervalMinutes", "maxBreakIntervalMinutes", "minBreakDurationMinutes", "maxBreakDurationMinutes",
         "discordWebhookIntervalSeconds", "discordWebhookChartRangeSeconds"]) data[key] = Number(data[key]);
       data.books = readBooks();
     } catch (error) {
@@ -493,7 +523,9 @@
     setMessage("Saving…");
     try {
       await request("/api/config", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+      roundGraphs = data.roundGraphs;
       setMessage("Settings saved");
+      if (document.getElementById("page-profit").classList.contains("active")) await refreshProfit();
     } catch (error) {
       setMessage(error.message, true);
     } finally {
@@ -504,13 +536,28 @@
   async function loadConfig() {
     const config = await request("/api/config");
     for (const key of ["speedMode", "speedModeDelay", "minActionDelay", "maxActionDelay", "firstPage", "secondPage",
+      "minBreakIntervalMinutes", "maxBreakIntervalMinutes", "minBreakDurationMinutes", "maxBreakDurationMinutes",
+      "sleepTimeEnabled", "sleepStartTime", "sleepEndTime",
       "discordWebhookEnabled", "discordWebhookUrl", "discordWebhookIntervalSeconds", "discordWebhookChartRangeSeconds"]) {
       const input = document.getElementById(key);
       if (input.type === "checkbox") input.checked = config[key];
       else input.value = config[key];
     }
+    updateBreakSliderLabels();
+    document.getElementById("roundGraphs").checked = config.roundGraphs;
+    roundGraphs = config.roundGraphs;
     document.getElementById("books").replaceChildren();
     for (const book of config.books) addBookRow(book);
+  }
+  function updateBreakSliderLabels() {
+    for (const id of ["minBreakIntervalMinutes", "maxBreakIntervalMinutes",
+      "minBreakDurationMinutes", "maxBreakDurationMinutes"]) {
+      document.getElementById(`${id}Value`).value = `${document.getElementById(id).value} min`;
+    }
+  }
+  for (const id of ["minBreakIntervalMinutes", "maxBreakIntervalMinutes",
+    "minBreakDurationMinutes", "maxBreakDurationMinutes"]) {
+    document.getElementById(id).addEventListener("input", updateBreakSliderLabels);
   }
   document.getElementById("settings").addEventListener("input", scheduleSave);
   document.getElementById("settings").addEventListener("change", scheduleSave);
@@ -521,11 +568,17 @@
     addBookRow();
     document.querySelector(".book-editor-row:last-child input").focus();
   });
-  for (const action of ["start", "stop"]) {
-    document.getElementById(action).addEventListener("click", async () => {
+  const actionButtons = { start: "start", pause: "pause", resume: "resume", stop: "stop", "reload-config": "reloadConfig" };
+  for (const [action, buttonId] of Object.entries(actionButtons)) {
+    document.getElementById(buttonId).addEventListener("click", async () => {
       try {
         await request("/api/action", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }) });
-        setMessage(`Macro ${action === "start" ? "started" : "stopped"}`);
+        if (action === "reload-config") {
+          await loadConfig();
+          setMessage("Settings reloaded from config");
+        } else {
+          setMessage(`Macro ${action === "start" || action === "resume" ? "running" : action === "pause" ? "paused" : "stopped"}`);
+        }
         await refreshStatus();
       } catch (error) {
         setMessage(error.message, true);

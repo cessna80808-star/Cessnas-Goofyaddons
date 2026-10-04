@@ -37,6 +37,14 @@ public class GoofyConfig {
     public String discordWebhookUrl = "";
     public int discordWebhookIntervalSeconds = 300;
     public int discordWebhookChartRangeSeconds = 86400;
+    public boolean roundGraphs = true;
+    public int minBreakIntervalMinutes = 60;
+    public int maxBreakIntervalMinutes = 120;
+    public int minBreakDurationMinutes = 5;
+    public int maxBreakDurationMinutes = 15;
+    public boolean sleepTimeEnabled = false;
+    public String sleepStartTime = "22:00";
+    public String sleepEndTime = "07:00";
 
 
     public static void load() {

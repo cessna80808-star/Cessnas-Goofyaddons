@@ -1,26 +1,50 @@
 # GoofyAddons
 
-GoofyAddons is a client-side Fabric mod with an in-game control panel for the Bazaar Flipper.
+GoofyAddons is an improved fork of **GoofyAddons by cessna808**.
 
-## Browser control panel
+This client-side Fabric mod includes a Bazaar Flipper and an in-game control panel.
 
-Start Minecraft with the mod installed, then open **http://127.0.0.1:8765** in a browser on the same computer. The animated, tabbed web panel separates Overview, Profit, Orders, Settings, and Books; it displays live macro status, monitored active Bazaar orders, claimed-coin and active-sell-offer graphs, and lets you sort orders, start or stop the flipper, edit settings and books, export profit history to CSV, and reset profit tracking. Animations respect the browser's reduced-motion setting. Claimed Bazaar coins count as realized; the total amount listed on active sell offers counts as unrealized. Profit history is stored in `config/goofyaddons-profit.json`. Changes save automatically one second after you stop editing. The panel is served by the Minecraft client and only bound to the local computer; Minecraft must remain running while you use it.
+## Features
 
-Enable **Send Discord updates** in the flipper settings and enter a Discord webhook URL to receive updates while the flipper is running. Choose how often snapshots are posted (30 seconds, 1 minute, 5 minutes, 15 minutes, or 1 hour) and the chart range (30 seconds through 24 hours). Each summary includes peak coins committed to monitored flipper buy orders, orders placed and filled since the previous update, current realized/unrealized totals, and a chart with both series overlaid. Discord webhooks post new snapshots; they cannot continuously update an existing chart in place. Unrealized value is the total amount listed on active sell offers. The webhook URL is stored in `config/goofyaddons.json`; treat it as a secret.
+- Browser control panel for live status, active orders, profit charts, settings, and books.
+- Start, pause, resume, and stop the flipper from the browser.
+- Configure randomized breaks and an optional sleep window based on your computer's local time. Sleep windows can cross midnight.
+- Track claimed Bazaar coins as realized profit and active sell-offer amounts as unrealized value.
+- Optionally send profit and order updates to a Discord webhook.
 
-## Controls
+## Quick start
 
-- Press **O** to open the GoofyAddons control panel.
-- Press **J** to start the Bazaar Flipper and **K** to stop it. These keybinds can be changed in Minecraft's Controls menu.
-- The safety failsafe pauses the flipper if an unexpected screen opens, the player is teleported or changes worlds, or the connection is lost. Check the game state and press **J** to resume; the flipper restarts its startup checks before acting again.
-- The panel shows the macro's live state, current feature and task count, active failsafes, configured books, and current keybinds.
-- Edit speed mode, action delays, storage page commands, and Discord webhook options in the browser panel; changes save automatically to `config/goofyaddons.json`.
-- Speed mode uses its fixed delay instead of the randomized action delay range.
+1. Install the mod and start Minecraft.
+2. Press **O** to open the in-game control panel, or open **http://127.0.0.1:8765** in a browser on the same computer.
+3. Press **J** to start the Bazaar Flipper. Press **K** to stop it.
 
-## Setup
+Minecraft must stay open while using the browser panel. The panel is served by the game and is only available on your local computer. Browser settings save automatically after you stop editing.
 
-For development setup instructions, see the [Fabric project setup documentation](https://docs.fabricmc.net/develop/getting-started/creating-a-project#setting-up).
+## Controls and safety
+
+- **O** opens the in-game control panel.
+- **J** starts or resumes the flipper; **K** stops it. You can change these keybinds in Minecraft's Controls menu.
+- The safety failsafe pauses the flipper if an unexpected screen opens, you are teleported or change worlds, or your connection is lost. Check the game state and press **J** to resume. The flipper reruns its startup checks before acting.
+- Speed mode uses its fixed delay instead of the randomized action-delay range.
+
+## Browser settings
+
+The browser panel has tabs for **Overview**, **Profit**, **Orders**, **Settings**, and **Books**. Use it to view status and active orders, manage configured books, sort orders, export profit history to CSV, or reset the profit tracker.
+
+In **Settings**, you can change speed mode, action delays, storage page commands, and break timing. Minimum and maximum sliders set the random interval between breaks and how long breaks last. Enable sleep time to pause the flipper during a chosen local-time window; overnight windows are supported.
+
+Profit history is stored in `config/goofyaddons-profit.json`. The other settings, including the Discord webhook URL, are stored in `config/goofyaddons.json`.
+
+## Discord updates
+
+Enable **Send Discord updates** in the flipper settings and enter a webhook URL. Choose an update interval (30 seconds, 1 minute, 5 minutes, 15 minutes, or 1 hour) and a chart range (30 seconds to 24 hours).
+
+Each update includes peak coins committed to monitored buy orders, orders placed and filled since the previous update, realized and unrealized totals, and a chart of both profit series. Discord webhooks post new snapshots; they cannot update an existing chart in place. Keep the webhook URL private.
+
+## Development setup
+
+For Fabric development setup instructions, see the [Fabric project setup documentation](https://docs.fabricmc.net/develop/getting-started/creating-a-project#setting-up).
 
 ## License
 
-This template is available under the CC0 license. Feel free to learn from it and incorporate it in your own projects.
+This project is available under the CC0 license. Feel free to learn from it and incorporate it in your own projects.

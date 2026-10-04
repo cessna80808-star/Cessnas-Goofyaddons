@@ -10,7 +10,9 @@ import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Font;
 import java.awt.Graphics2D;
+import java.awt.Point;
 import java.awt.RenderingHints;
+import java.awt.geom.Path2D;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -103,7 +105,7 @@ public final class DiscordWebhookReporter {
         byte[] chart;
         try {
             chart = createChart(realizedHistory, unrealizedHistory, snapshot.realizedProfit(),
-                    snapshot.unrealizedProfit(), now, chartRangeSeconds);
+                    snapshot.unrealizedProfit(), now, chartRangeSeconds, GoofyConfig.INSTANCE.roundGraphs);
         } catch (IOException exception) {
             sending.set(false);
             GoofyAddons.LOGGER.error("Could not create the Discord profit chart", exception);
@@ -288,7 +290,7 @@ public final class DiscordWebhookReporter {
     private static byte[] createChart(List<ProfitTracker.ProfitPoint> realizedHistory,
                                       List<ProfitTracker.ProfitPoint> unrealizedHistory,
                                       double currentRealized, double currentUnrealized, long now,
-                                      int chartRangeSeconds) throws IOException {
+                                      int chartRangeSeconds, boolean roundGraphs) throws IOException {
         long from = now - chartRangeSeconds * 1000L;
         List<ProfitTracker.ProfitPoint> realizedPoints = pointsForChart(realizedHistory, currentRealized, from, now);
         List<ProfitTracker.ProfitPoint> unrealizedPoints = pointsForChart(unrealizedHistory, currentUnrealized, from, now);
@@ -316,8 +318,8 @@ public final class DiscordWebhookReporter {
                 graphics.setColor(MUTED);
                 graphics.drawString(formatCompact(max * (4 - i) / 4), 22, y + 5);
             }
-            drawLine(graphics, realizedPoints, REALIZED, from, now, max, left, top, plotWidth, plotHeight);
-            drawLine(graphics, unrealizedPoints, UNREALIZED, from, now, max, left, top, plotWidth, plotHeight);
+            drawLine(graphics, realizedPoints, REALIZED, from, now, max, left, top, plotWidth, plotHeight, roundGraphs);
+            drawLine(graphics, unrealizedPoints, UNREALIZED, from, now, max, left, top, plotWidth, plotHeight, roundGraphs);
             graphics.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 14));
             graphics.setColor(REALIZED);
             graphics.fillOval(left, CHART_HEIGHT - 42, 12, 12);
@@ -352,17 +354,36 @@ public final class DiscordWebhookReporter {
     }
 
     private static void drawLine(Graphics2D graphics, List<ProfitTracker.ProfitPoint> points, Color color,
-                                 long from, long now, double max, int left, int top, int width, int height) {
+                                 long from, long now, double max, int left, int top, int width, int height,
+                                 boolean roundGraphs) {
         graphics.setColor(color);
         graphics.setStroke(new BasicStroke(3, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-        int previousX = -1, previousY = -1;
+        List<Point> coordinates = new ArrayList<>();
         for (ProfitTracker.ProfitPoint point : points) {
             int x = left + (int) ((point.timestamp() - from) * width / (double) (now - from));
             int y = top + height - (int) (Math.max(0, point.value()) / max * height);
-            if (previousX >= 0) graphics.drawLine(previousX, previousY, x, y);
+            coordinates.add(new Point(x, y));
             graphics.fillOval(x - 3, y - 3, 6, 6);
-            previousX = x;
-            previousY = y;
         }
+        if (coordinates.size() < 2) return;
+        if (!roundGraphs) {
+            for (int i = 1; i < coordinates.size(); i++) {
+                Point previous = coordinates.get(i - 1);
+                Point current = coordinates.get(i);
+                graphics.drawLine(previous.x, previous.y, current.x, current.y);
+            }
+            return;
+        }
+        Path2D path = new Path2D.Double();
+        Point first = coordinates.getFirst();
+        path.moveTo(first.x, first.y);
+        for (int i = 1; i < coordinates.size() - 1; i++) {
+            Point current = coordinates.get(i);
+            Point next = coordinates.get(i + 1);
+            path.quadTo(current.x, current.y, (current.x + next.x) / 2.0, (current.y + next.y) / 2.0);
+        }
+        Point last = coordinates.getLast();
+        path.lineTo(last.x, last.y);
+        graphics.draw(path);
     }
 }

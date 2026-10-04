@@ -18,6 +18,7 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalTime;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -136,10 +137,35 @@ public final class WebGuiServer {
                                 "discordWebhookIntervalSeconds", 30, 60, 300, 900, 3600);
                         int discordWebhookChartRangeSeconds = requiredChoice(submitted,
                                 "discordWebhookChartRangeSeconds", 30, 60, 300, 900, 3600, 21600, 86400);
+                        boolean roundGraphs = requiredBoolean(submitted, "roundGraphs");
+                        int minBreakIntervalMinutes = requiredInteger(submitted, "minBreakIntervalMinutes");
+                        int maxBreakIntervalMinutes = requiredInteger(submitted, "maxBreakIntervalMinutes");
+                        int minBreakDurationMinutes = requiredInteger(submitted, "minBreakDurationMinutes");
+                        int maxBreakDurationMinutes = requiredInteger(submitted, "maxBreakDurationMinutes");
+                        boolean sleepTimeEnabled = requiredBoolean(submitted, "sleepTimeEnabled");
+                        String sleepStartTime = requiredText(submitted, "sleepStartTime");
+                        String sleepEndTime = requiredText(submitted, "sleepEndTime");
                         var books = requiredBooks(submitted);
 
                         if (speedDelay < 1 || minDelay < 51 || maxDelay <= minDelay) {
                             throw new IllegalArgumentException("Invalid delay values");
+                        }
+                        if (minBreakIntervalMinutes < 15 || maxBreakIntervalMinutes > 720
+                                || maxBreakIntervalMinutes < minBreakIntervalMinutes
+                                || minBreakDurationMinutes < 1 || maxBreakDurationMinutes > 180
+                                || maxBreakDurationMinutes < minBreakDurationMinutes) {
+                            throw new IllegalArgumentException("Break intervals must be 15-720 minutes and break durations 1-180 minutes, with each maximum at least its minimum");
+                        }
+                        LocalTime sleepStart;
+                        LocalTime sleepEnd;
+                        try {
+                            sleepStart = LocalTime.parse(sleepStartTime);
+                            sleepEnd = LocalTime.parse(sleepEndTime);
+                        } catch (java.time.format.DateTimeParseException exception) {
+                            throw new IllegalArgumentException("Sleep times must use 24-hour HH:mm format");
+                        }
+                        if (sleepTimeEnabled && sleepStart.equals(sleepEnd)) {
+                            throw new IllegalArgumentException("Sleep start and end times must be different");
                         }
                         if (discordWebhookEnabled && discordWebhookUrl.isBlank()) {
                             throw new IllegalArgumentException("Enter a Discord webhook URL to enable updates");
@@ -155,6 +181,14 @@ public final class WebGuiServer {
                         config.discordWebhookUrl = discordWebhookUrl;
                         config.discordWebhookIntervalSeconds = discordWebhookIntervalSeconds;
                         config.discordWebhookChartRangeSeconds = discordWebhookChartRangeSeconds;
+                        config.roundGraphs = roundGraphs;
+                        config.minBreakIntervalMinutes = minBreakIntervalMinutes;
+                        config.maxBreakIntervalMinutes = maxBreakIntervalMinutes;
+                        config.minBreakDurationMinutes = minBreakDurationMinutes;
+                        config.maxBreakDurationMinutes = maxBreakDurationMinutes;
+                        config.sleepTimeEnabled = sleepTimeEnabled;
+                        config.sleepStartTime = sleepStartTime;
+                        config.sleepEndTime = sleepEndTime;
                         config.books = books;
                         if (!GoofyConfig.save()) {
                             throw new IllegalStateException("Could not save settings; check the Minecraft log");
@@ -171,13 +205,26 @@ public final class WebGuiServer {
             if ("/api/action".equals(path) && "POST".equals(method)) {
                 JsonObject submitted = readJsonObject(exchange);
                 String action = requiredText(submitted, "action");
-                if (!"start".equals(action) && !"stop".equals(action)) {
+                if (!"start".equals(action) && !"pause".equals(action) && !"resume".equals(action)
+                        && !"stop".equals(action) && !"reload-config".equals(action)) {
                     send(exchange, 400, "application/json; charset=utf-8", "{\"error\":\"Unknown action\"}");
+                    return;
+                }
+                if ("reload-config".equals(action)) {
+                    onClientThread(minecraft, () -> {
+                        GoofyConfig.load();
+                        return null;
+                    });
+                    send(exchange, 200, "application/json; charset=utf-8", "{\"ok\":true}");
                     return;
                 }
                 onClientThread(minecraft, () -> {
                     if ("start".equals(action)) {
                         FeatureManager.INSTANCE.start("BazaarFlipper");
+                    } else if ("pause".equals(action)) {
+                        FeatureManager.INSTANCE.pause();
+                    } else if ("resume".equals(action)) {
+                        FeatureManager.INSTANCE.resume();
                     } else {
                         FeatureManager.INSTANCE.stop();
                     }

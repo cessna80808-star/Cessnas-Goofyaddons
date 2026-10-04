@@ -23,6 +23,7 @@ import net.minecraft.client.gui.screens.inventory.AbstractSignEditScreen;
 import net.minecraft.client.gui.screens.inventory.SignEditScreen;
 
 import java.lang.reflect.Field;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -83,6 +84,11 @@ public class BazaarFlipper implements Feature {
     private int combine_Counter = -1;
     private boolean overFlowProt = false;
     private int tick;
+    private long nextBreakAtMillis;
+    private long breakEndsAtMillis;
+    private boolean breakActive;
+    private boolean sleepModeActive;
+    private boolean invalidSleepTimesLogged;
 
     private Task activeTask = null;
     private final Set<Task> listOfTaskToChange = new HashSet<>();
@@ -115,6 +121,8 @@ public class BazaarFlipper implements Feature {
 
     @Override
     public String status() {
+        if (sleepModeActive) return "Sleep time";
+        if (breakActive) return "Break";
         return paused ? "Paused" : running ? state.name() : "Stopped";
     }
 
@@ -161,6 +169,11 @@ public class BazaarFlipper implements Feature {
         taskList.clear();
         bookLists.clear();
         tick = 0;
+        nextBreakAtMillis = 0;
+        breakEndsAtMillis = 0;
+        breakActive = false;
+        sleepModeActive = false;
+        invalidSleepTimesLogged = false;
         listOfTaskToChange.clear();
         pendingSellOfferAmounts.clear();
         running = false;
@@ -174,12 +187,15 @@ public class BazaarFlipper implements Feature {
         minecraft.mouseHandler.releaseMouse();
         discordWebhookReporter.start();
         running = true;
+        scheduleNextBreak(System.currentTimeMillis());
     }
 
     @Override
     public void pause() {
         running = false;
         paused = true;
+        breakActive = false;
+        sleepModeActive = false;
     }
 
     @Override
@@ -190,11 +206,42 @@ public class BazaarFlipper implements Feature {
         }
         running = true;
         paused = false;
+        breakActive = false;
+        sleepModeActive = false;
+        scheduleNextBreak(System.currentTimeMillis());
     }
 
     @Override
     public void onTick() {
         if (!running) return;
+        long now = System.currentTimeMillis();
+        if (isSleepTime()) {
+            if (!sleepModeActive) {
+                sleepModeActive = true;
+                breakActive = false;
+                scheduleNextBreak(now);
+                enterScheduledHold("sleep time", "Sleep time; automation paused");
+            }
+            return;
+        }
+        if (sleepModeActive) {
+            sleepModeActive = false;
+            scheduleNextBreak(now);
+            debug("[BazaarFlipper] sleep time ended; resuming");
+        }
+        if (breakActive) {
+            if (now < breakEndsAtMillis) return;
+            breakActive = false;
+            scheduleNextBreak(now);
+            debug("[BazaarFlipper] scheduled break ended; resuming");
+        } else if (now >= nextBreakAtMillis) {
+            GoofyConfig config = GoofyConfig.INSTANCE;
+            long duration = randomMinutes(config.minBreakDurationMinutes, config.maxBreakDurationMinutes);
+            breakEndsAtMillis = now + duration * 60_000L;
+            breakActive = true;
+            enterScheduledHold("scheduled break", "Taking a scheduled break");
+            return;
+        }
         if (minecraft.player == null || minecraft.level == null || minecraft.gameMode == null) return;
         discordWebhookReporter.onTick(bazaarMonitor.activeBuyOrderValue());
         selfRecoveryTrigger();
@@ -1110,6 +1157,41 @@ public class BazaarFlipper implements Feature {
             }
         }
 
+    }
+
+    private boolean isSleepTime() {
+        GoofyConfig config = GoofyConfig.INSTANCE;
+        if (!config.sleepTimeEnabled) return false;
+        try {
+            LocalTime start = LocalTime.parse(config.sleepStartTime);
+            LocalTime end = LocalTime.parse(config.sleepEndTime);
+            invalidSleepTimesLogged = false;
+            if (start.equals(end)) return false;
+            LocalTime now = LocalTime.now();
+            return start.isBefore(end)
+                    ? !now.isBefore(start) && now.isBefore(end)
+                    : !now.isBefore(start) || now.isBefore(end);
+        } catch (java.time.format.DateTimeParseException exception) {
+            if (!invalidSleepTimesLogged) {
+                GoofyAddons.LOGGER.error("Sleep time is enabled but its configured times are invalid; expected HH:mm");
+                invalidSleepTimesLogged = true;
+            }
+            return false;
+        }
+    }
+
+    private void enterScheduledHold(String reason, String message) {
+        debug("[BazaarFlipper] entering " + reason);
+        ChatUtils.clientMessage("BazaarFlipper: " + message);
+    }
+
+    private void scheduleNextBreak(long now) {
+        GoofyConfig config = GoofyConfig.INSTANCE;
+        nextBreakAtMillis = now + randomMinutes(config.minBreakIntervalMinutes, config.maxBreakIntervalMinutes) * 60_000L;
+    }
+
+    private long randomMinutes(int minimum, int maximum) {
+        return splittableRandom.nextLong(minimum, (long) maximum + 1);
     }
 
     private boolean containerNameCheck(String name) {
